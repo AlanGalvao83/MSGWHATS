@@ -24,14 +24,16 @@ def is_supabase_enabled():
 def supabase_request(endpoint, method="GET", data=None, params=None, headers_extra=None):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
-        url += "?" + urllib.parse.urlencode(params)
+        url += "?" + urllib.parse.urlencode(params, safe="*,()")
         
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
+        "Content-Type": "application/json"
     }
+    if method in ["POST", "PATCH", "PUT", "DELETE"]:
+        headers["Prefer"] = "return=representation"
+        
     if headers_extra:
         headers.update(headers_extra)
         
@@ -168,15 +170,19 @@ def get_all_mensalistas():
                     m['veiculos'] = []
             return joined
 
-        mensalistas = supabase_request("mensalistas", params={"select": "*", "order": "id.desc"}) or []
+        mensalistas = supabase_request("mensalistas", params={"select": "*", "order": "id.desc"})
+        if not isinstance(mensalistas, list):
+            mensalistas = []
+            
         veiculos = supabase_request("veiculos", params={"select": "*"}) or []
         
         veiculos_map = {}
-        for v in veiculos:
-            m_id = str(v.get('mensalista_id', ''))
-            if m_id not in veiculos_map:
-                veiculos_map[m_id] = []
-            veiculos_map[m_id].append(v)
+        if isinstance(veiculos, list):
+            for v in veiculos:
+                m_id = str(v.get('mensalista_id', ''))
+                if m_id not in veiculos_map:
+                    veiculos_map[m_id] = []
+                veiculos_map[m_id].append(v)
             
         for m in mensalistas:
             m_key = str(m.get('id', ''))
@@ -276,32 +282,33 @@ def add_mensalistas_bulk(list_records):
         return 0
         
     if is_supabase_enabled():
-        res = supabase_request("mensalistas", method="POST", data=records_to_insert)
-        if res is not None:
-            return len(records_to_insert)
-        else:
-            fallback_records = []
-            for r in records_to_insert:
-                fallback_records.append({
-                    "nome": r["nome"],
-                    "telefone": r["telefone"],
-                    "token": r["token"]
-                })
-            res_fb = supabase_request("mensalistas", method="POST", data=fallback_records)
-            return len(fallback_records) if res_fb is not None else 0
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    count = 0
-    for r in records_to_insert:
-        cursor.execute(
-            "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, cpf, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (r['nome'], r['telefone'], r['token'], r['numero_cartao'], r['tipo_vinculo'], r['nome_loja'], r.get('cpf'), r.get('email'))
-        )
-        count += 1
-    conn.commit()
-    conn.close()
-    return count
+        inserted_count = 0
+        chunk_size = 50
+        for i in range(0, len(records_to_insert), chunk_size):
+            chunk = records_to_insert[i:i + chunk_size]
+            res = supabase_request("mensalistas", method="POST", data=chunk)
+            if res is not None:
+                inserted_count += len(chunk)
+            else:
+                fallback_chunk = []
+                for r in chunk:
+                    fallback_chunk.append({
+                        "nome": r["nome"],
+                        "telefone": r["telefone"],
+                        "token": r["token"],
+                        "numero_cartao": r.get("numero_cartao"),
+                        "tipo_vinculo": r.get("tipo_vinculo"),
+                        "nome_loja": r.get("nome_loja")
+                    })
+                res_fb = supabase_request("mensalistas", method="POST", data=fallback_chunk)
+                if res_fb is not None:
+                    inserted_count += len(fallback_chunk)
+                else:
+                    min_chunk = [{"nome": r["nome"], "telefone": r["telefone"], "token": r["token"]} for r in chunk]
+                    res_min = supabase_request("mensalistas", method="POST", data=min_chunk)
+                    if res_min is not None:
+                        inserted_count += len(min_chunk)
+        return inserted_count
 
 def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vinculo=None, nome_loja=None, cpf=None, email=None):
     m = get_mensalista_by_token(token)
