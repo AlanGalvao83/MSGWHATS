@@ -166,13 +166,14 @@ def get_all_mensalistas():
         
         veiculos_map = {}
         for v in veiculos:
-            m_id = v.get('mensalista_id')
+            m_id = str(v.get('mensalista_id', ''))
             if m_id not in veiculos_map:
                 veiculos_map[m_id] = []
             veiculos_map[m_id].append(v)
             
         for m in mensalistas:
-            m['veiculos'] = veiculos_map.get(m['id'], [])
+            m_key = str(m.get('id', ''))
+            m['veiculos'] = veiculos_map.get(m_key, [])
         return mensalistas
 
     conn = get_db_connection()
@@ -193,7 +194,8 @@ def get_mensalista_by_token(token):
         if not rows or len(rows) == 0:
             return None
         m = rows[0]
-        veiculos = supabase_request("veiculos", params={"select": "*", "mensalista_id": f"eq.{m['id']}"}) or []
+        m_id = m['id']
+        veiculos = supabase_request("veiculos", params={"select": "*", "mensalista_id": f"eq.{m_id}"}) or []
         m['veiculos'] = veiculos
         return m
 
