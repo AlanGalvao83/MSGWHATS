@@ -8,7 +8,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from urllib.parse import quote
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__, static_folder='static', static_url_path='/static', template_folder='templates')
 
 # Garantir inicialização do Banco de Dados
 database.init_db()
