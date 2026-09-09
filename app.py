@@ -13,6 +13,22 @@ app = Flask(__name__, static_folder='static', static_url_path='/static', templat
 database.init_db()
 database.seed_sample_data_if_empty()
 
+def get_public_host():
+    """Retorna o domínio público HTTPS configurado ou detectado para gerar os links do WhatsApp."""
+    configs = database.get_configuracoes()
+    dominio_custom = configs.get('dominio_publico', '').strip()
+    if dominio_custom:
+        return dominio_custom.rstrip('/')
+        
+    forwarded_host = request.headers.get('X-Forwarded-Host')
+    if forwarded_host:
+        return f"https://{forwarded_host}"
+        
+    if os.environ.get("VERCEL"):
+        return f"https://{request.host}"
+        
+    return request.host_url.rstrip('/')
+
 @app.route('/')
 def index():
     return redirect(url_for('admin'))
@@ -37,7 +53,7 @@ def success_page():
 @app.route('/api/mensalistas', methods=['GET'])
 def api_get_mensalistas():
     mensalistas = database.get_all_mensalistas()
-    host_url = request.host_url.rstrip('/')
+    host_url = get_public_host()
     
     for m in mensalistas:
         m['link_atualizacao'] = f"{host_url}/atualizar/{m['token']}"
@@ -100,7 +116,6 @@ def api_import_csv():
                 except Exception:
                     pass
                     
-            # Priorizar vírgula se presente na linha
             delimiter = ',' if ',' in text else (';' if ';' in text else '\t')
             stream = io.StringIO(text, newline=None)
             csv_input = csv.reader(stream, delimiter=delimiter, skipinitialspace=True)
@@ -115,7 +130,6 @@ def api_import_csv():
                     nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
                     tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
                     
-                    # Garantir que não seja o próprio cabeçalho
                     if nome and telefone and not nome.lower().startswith('nome') and not nome.lower().startswith('mensalista'):
                         records.append({
                             'nome': nome,
@@ -206,7 +220,7 @@ def api_marcar_enviado(m_id):
 @app.route('/api/exportar-mensalistas', methods=['GET'])
 def api_exportar_mensalistas():
     mensalistas = database.get_all_mensalistas()
-    host_url = request.host_url.rstrip('/')
+    host_url = get_public_host()
     
     wb = openpyxl.Workbook()
     ws = wb.active

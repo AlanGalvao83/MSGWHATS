@@ -231,6 +231,14 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">Domínio Público do Sistema (Endereço Web Vercel / Site)</label>
+          <input type="text" id="config-dominio-publico" class="form-control" placeholder="Ex: https://msgwhats.vercel.app">
+          <small style="color: var(--text-muted); margin-top: 4px; display: block;">
+            Endereço público do site iniciado com <code>https://</code> para garantir que os links fiquem <strong>azuis e clicáveis</strong> no WhatsApp.
+          </small>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Texto da Mensagem no WhatsApp</label>
           <textarea id="config-mensagem-template" class="form-control" style="height: 160px;" oninput="atualizarPréviaMensagem()"></textarea>
           <small style="color: var(--text-muted); margin-top: 6px; display: block;">

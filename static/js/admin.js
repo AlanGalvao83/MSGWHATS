@@ -24,6 +24,7 @@ async function loadConfiguracoes() {
     const res = await fetch('/api/configuracoes');
     configuracoesData = await res.json();
     document.getElementById('config-nome-estacionamento').value = configuracoesData.nome_estacionamento || '';
+    document.getElementById('config-dominio-publico').value = configuracoesData.dominio_publico || 'https://msgwhats.vercel.app';
     
     let templateText = configuracoesData.mensagem_template || '';
     templateText = templateText.replace(/\\n/g, '\n');
@@ -315,18 +316,19 @@ function atualizarPréviaMensagem() {
 
 async function salvarConfiguracoes() {
   const nome_estacionamento = document.getElementById('config-nome-estacionamento').value;
+  const dominio_publico = document.getElementById('config-dominio-publico').value;
   const mensagem_template = document.getElementById('config-mensagem-template').value;
 
   const res = await fetch('/api/configuracoes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome_estacionamento, mensagem_template })
+    body: JSON.stringify({ nome_estacionamento, dominio_publico, mensagem_template })
   });
 
   if (res.ok) {
     alert("Configurações salvas com sucesso!");
-    loadConfiguracoes();
-    loadData();
+    await loadConfiguracoes();
+    await loadData();
   }
 }
 

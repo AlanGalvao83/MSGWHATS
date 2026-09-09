@@ -109,6 +109,7 @@ def init_db():
     cursor.execute('''
         INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES 
         ('nome_estacionamento', 'Estacionamento Iguatemi Brasília'),
+        ('dominio_publico', 'https://msgwhats.vercel.app'),
         ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor informe seu vínculo (loja ou mensalista externo), número do cartão e veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
         ('intervalo_envio_segundos', '10')
     ''')
