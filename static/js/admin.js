@@ -57,11 +57,14 @@ function switchTab(tabId, btn) {
 
 function renderMensalistasTable() {
   const tbody = document.getElementById('table-mensalistas-body');
-  const search = document.getElementById('search-input').value.toLowerCase().strip ? document.getElementById('search-input').value.toLowerCase().strip() : document.getElementById('search-input').value.toLowerCase();
+  const searchInput = document.getElementById('search-input');
+  const search = searchInput && searchInput.value ? searchInput.value.toLowerCase().trim() : '';
   
   const filtered = mensalistasData.filter(m => {
+    const cartaoStr = m.numero_cartao || '';
     return m.nome.toLowerCase().includes(search) || 
            m.telefone.includes(search) || 
+           cartaoStr.includes(search) ||
            m.status_envio.toLowerCase().includes(search) ||
            m.status_cadastro.toLowerCase().includes(search);
   });
@@ -69,7 +72,7 @@ function renderMensalistasTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
           Nenhum mensalista encontrado.
         </td>
       </tr>
@@ -91,12 +94,17 @@ function renderMensalistasTable() {
       ? `<strong style="color: #34d399;">${qtdVeiculos} veículo(s)</strong>` 
       : `<span style="color: var(--text-muted);">-</span>`;
 
+    const cartaoDisplay = m.numero_cartao 
+      ? `<code style="font-size: 1rem; font-weight: bold; color: #818cf8; letter-spacing: 1px;">${m.numero_cartao}</code>` 
+      : `<span style="color: var(--text-muted); font-size: 0.8rem;">Pendente</span>`;
+
     return `
       <tr>
         <td>
           <div style="font-weight: 600;">${m.nome}</div>
           <small style="color: var(--text-muted); font-size: 0.75rem;">ID: #${m.id}</small>
         </td>
+        <td>${cartaoDisplay}</td>
         <td><code>${formatPhone(m.telefone)}</code></td>
         <td>${envioBadge}</td>
         <td>${cadastroBadge}</td>
@@ -128,6 +136,7 @@ function renderVeiculosTable() {
       m.veiculos.forEach(v => {
         rows.push({
           mensalista: m.nome,
+          cartao: m.numero_cartao || 'Pendente',
           telefone: m.telefone,
           modelo: v.modelo,
           ano: v.ano,
@@ -142,7 +151,7 @@ function renderVeiculosTable() {
   if (rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
           Nenhum veículo cadastrado pelos mensalistas até o momento.
         </td>
       </tr>
@@ -153,6 +162,7 @@ function renderVeiculosTable() {
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td><strong>${r.mensalista}</strong></td>
+      <td><code style="color: #818cf8; font-weight: bold;">${r.cartao}</code></td>
       <td><code>${formatPhone(r.telefone)}</code></td>
       <td>${r.modelo}</td>
       <td>${r.ano}</td>
@@ -175,7 +185,6 @@ function formatPlaca(placa) {
   if (!placa) return '';
   const clean = placa.toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (clean.length === 7) {
-    // Se for formato antigo ABC1234
     if (/^[A-Z]{3}[0-9]{4}$/.test(clean)) {
       return `${clean.slice(0,3)}-${clean.slice(3)}`;
     }
@@ -204,7 +213,6 @@ async function deletarMensalista(mId) {
   }
 }
 
-// Modal Handlers
 function openImportModal() {
   document.getElementById('modal-import').classList.add('active');
 }
@@ -223,17 +231,19 @@ async function handleAddSubmit(e) {
   e.preventDefault();
   const nome = document.getElementById('add-nome').value;
   const telefone = document.getElementById('add-telefone').value;
+  const numero_cartao = document.getElementById('add-cartao').value;
 
   const res = await fetch('/api/mensalistas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone })
+    body: JSON.stringify({ nome, telefone, numero_cartao })
   });
 
   if (res.ok) {
     closeAddModal();
     document.getElementById('add-nome').value = '';
     document.getElementById('add-telefone').value = '';
+    document.getElementById('add-cartao').value = '';
     loadData();
   } else {
     alert("Erro ao adicionar mensalista.");
@@ -266,9 +276,8 @@ async function handleImportSubmit(e) {
   }
 }
 
-// Configuration Tab Logic
 function atualizarPréviaMensagem() {
-  const nomeEst = document.getElementById('config-nome-estacionamento').value || 'Estacionamento WPS';
+  const nomeEst = document.getElementById('config-nome-estacionamento').value || 'Estacionamento Iguatemi Brasília';
   const template = document.getElementById('config-mensagem-template').value || '';
   
   const previa = template.replace('{nome}', 'Carlos Silva')
@@ -295,7 +304,6 @@ async function salvarConfiguracoes() {
   }
 }
 
-// Disparo em Lote
 function updateLotePreview() {
   const filtro = document.getElementById('lote-filtro').value;
   let selecionados = [];
@@ -342,11 +350,9 @@ async function iniciarDisparoLote() {
     const item = lista[i];
     btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Enviando ${i + 1}/${lista.length}: ${item.nome}...`;
     
-    // Abrir a aba do WhatsApp Web para disparar
     window.open(item.whatsapp_url, '_blank');
     await marcarComoEnviado(item.id);
     
-    // Aguardar o delay configurado
     await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
   }
 

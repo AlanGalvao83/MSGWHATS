@@ -10,7 +10,6 @@ from urllib.parse import quote
 
 app = Flask(__name__, static_folder='static', static_url_path='/static', template_folder='templates')
 
-# Garantir inicialização do Banco de Dados
 database.init_db()
 database.seed_sample_data_if_empty()
 
@@ -40,10 +39,8 @@ def api_get_mensalistas():
     mensalistas = database.get_all_mensalistas()
     host_url = request.host_url.rstrip('/')
     
-    # Adicionar link completo de atualização em cada item
     for m in mensalistas:
         m['link_atualizacao'] = f"{host_url}/atualizar/{m['token']}"
-        # Gerar link formatado do WhatsApp
         configs = database.get_configuracoes()
         msg_template = configs.get('mensagem_template', 'Olá {nome}, atualize seu cadastro: {link}')
         nome_estacionamento = configs.get('nome_estacionamento', 'Estacionamento WPS')
@@ -62,11 +59,12 @@ def api_add_mensalista():
     data = request.json or {}
     nome = data.get('nome', '').strip()
     telefone = data.get('telefone', '').strip()
+    numero_cartao = data.get('numero_cartao', '').strip()
     
     if not nome or not telefone:
         return jsonify({'error': 'Nome e telefone são obrigatórios.'}), 400
         
-    m_id = database.add_mensalista(nome, telefone)
+    m_id = database.add_mensalista(nome, telefone, numero_cartao=numero_cartao)
     return jsonify({'success': True, 'id': m_id}), 201
 
 @app.route('/api/mensalistas/<int:m_id>', methods=['DELETE'])
@@ -90,7 +88,6 @@ def api_import_csv():
             stream = io.StringIO(file.stream.read().decode("utf-8", errors="ignore"), newline=None)
             csv_input = csv.reader(stream, delimiter=';' if ';' in stream.getvalue() else ',')
             
-            # Reset stream
             stream.seek(0)
             headers = next(csv_input, None)
             
@@ -98,8 +95,9 @@ def api_import_csv():
                 if len(row) >= 2:
                     nome = row[0].strip()
                     telefone = row[1].strip()
+                    numero_cartao = row[2].strip() if len(row) >= 3 else None
                     if nome and telefone and not nome.lower().startswith('nome'):
-                        database.add_mensalista(nome, telefone)
+                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao)
                         importados += 1
         elif filename.endswith('.xlsx') or filename.endswith('.xls'):
             wb = openpyxl.load_workbook(file)
@@ -108,8 +106,9 @@ def api_import_csv():
                 if row and len(row) >= 2 and row[0] and row[1]:
                     nome = str(row[0]).strip()
                     telefone = str(row[1]).strip()
+                    numero_cartao = str(row[2]).strip() if len(row) >= 3 and row[2] else None
                     if nome and telefone and not nome.lower().startswith('nome'):
-                        database.add_mensalista(nome, telefone)
+                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao)
                         importados += 1
         else:
             return jsonify({'error': 'Formato não suportado. Envie CSV ou Excel (.xlsx).'}), 400
@@ -139,11 +138,15 @@ def api_get_token(token):
 def api_post_recadastro(token):
     data = request.json or {}
     veiculos = data.get('veiculos', [])
+    numero_cartao = data.get('numero_cartao', '').strip()
     
+    if not numero_cartao or len(numero_cartao) != 6 or not numero_cartao.isdigit():
+        return jsonify({'error': 'Por favor, informe o número do cartão de 6 dígitos.'}), 400
+
     if not veiculos or not isinstance(veiculos, list):
         return jsonify({'error': 'Informe ao menos 1 veículo com Modelo e Placa.'}), 400
         
-    success, msg = database.update_mensalista_veiculos(token, veiculos)
+    success, msg = database.update_mensalista_veiculos(token, veiculos, numero_cartao=numero_cartao)
     if not success:
         return jsonify({'error': msg}), 400
         
@@ -156,15 +159,13 @@ def api_marcar_enviado(m_id):
 
 @app.route('/api/exportar-wps', methods=['GET'])
 def api_exportar_wps():
-    """Gera um arquivo Excel (.xlsx) formatado pronto para o sistema WPS."""
     mensalistas = database.get_all_mensalistas()
     
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Cadastro Veiculos WPS"
     
-    # Estilização do cabeçalho
-    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid") # Dark slate
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
     header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
     align_center = Alignment(horizontal="center", vertical="center")
     align_left = Alignment(horizontal="left", vertical="center")
@@ -177,7 +178,7 @@ def api_exportar_wps():
     )
     
     headers = [
-        "ID Mensalista", "Nome do Mensalista", "Telefone/WhatsApp",
+        "ID Mensalista", "Nome do Mensalista", "Nº Cartão NEPOS (6 dígitos)", "Telefone/WhatsApp",
         "Modelo do Veículo", "Ano", "Cor", "Placa Liberada (LPR)", "Data Recadastro"
     ]
     
@@ -192,11 +193,14 @@ def api_exportar_wps():
     row_count = 2
     for m in mensalistas:
         veiculos = m.get('veiculos', [])
+        cartao = m.get('numero_cartao') or 'Pendente'
+        
         if veiculos:
             for v in veiculos:
                 ws.append([
                     m['id'],
                     m['nome'],
+                    cartao,
                     m['telefone'],
                     v['modelo'],
                     v['ano'],
@@ -204,16 +208,16 @@ def api_exportar_wps():
                     v['placa'],
                     m['data_atualizacao'] or 'Pendente'
                 ])
-                for col_num in range(1, 9):
+                for col_num in range(1, 10):
                     cell = ws.cell(row=row_count, column=col_num)
                     cell.border = thin_border
-                    cell.alignment = align_center if col_num in [1, 3, 5, 7, 8] else align_left
+                    cell.alignment = align_center if col_num in [1, 3, 4, 6, 8, 9] else align_left
                 row_count += 1
         else:
-            # Caso ainda não tenha atualizado os veículos
             ws.append([
                 m['id'],
                 m['nome'],
+                cartao,
                 m['telefone'],
                 "Pendente de Recadastro",
                 "-",
@@ -221,17 +225,16 @@ def api_exportar_wps():
                 "-",
                 "Pendente"
             ])
-            for col_num in range(1, 9):
+            for col_num in range(1, 10):
                 cell = ws.cell(row=row_count, column=col_num)
                 cell.border = thin_border
-                cell.alignment = align_center if col_num in [1, 3, 5, 7, 8] else align_left
+                cell.alignment = align_center if col_num in [1, 3, 4, 6, 8, 9] else align_left
             row_count += 1
             
-    # Ajustar largura das colunas
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)
         col_letter = openpyxl.utils.get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 14)
         
     output = io.BytesIO()
     wb.save(output)

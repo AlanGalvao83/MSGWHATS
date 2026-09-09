@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (INITIAL_VEHICLES && INITIAL_VEHICLES.length > 0) {
     INITIAL_VEHICLES.forEach(v => addVehicleForm(v));
   } else {
-    addVehicleForm(); // Pelo menos 1 formulário em branco
+    addVehicleForm();
   }
 });
 
@@ -45,7 +45,6 @@ function addVehicleForm(data = {}) {
         <label class="form-label">Placa do Veículo (Liberada para LPR) *</label>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
           <input type="text" class="form-control input-placa" placeholder="Ex: ABC1D23 ou ABC-1234" value="${data.placa || ''}" oninput="handlePlacaInput(this)" maxlength="8" required style="font-family: monospace; font-size: 1.1rem; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">
-          <div class="plate-preview-box" style="display: none;"></div>
         </div>
         <small style="color: var(--text-muted); margin-top: 4px; display: block;">
           Aceita padrão Mercosul (ABC1D23) ou tradicional (ABC-1234).
@@ -70,17 +69,23 @@ function removeVehicleForm(id) {
 
 function handlePlacaInput(input) {
   let val = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  
   if (val.length > 7) {
     val = val.slice(0, 7);
   }
-  
-  // Format visual display
   input.value = val;
 }
 
 async function handleCustomerSubmit(e) {
   e.preventDefault();
+
+  const numeroCartaoInput = document.getElementById('numero-cartao');
+  const numero_cartao = numeroCartaoInput ? numeroCartaoInput.value.trim() : '';
+
+  if (!numero_cartao || numero_cartao.length !== 6 || !/^\d{6}$/.test(numero_cartao)) {
+    alert("Por favor, informe os 6 dígitos numéricos do seu cartão de estacionamento.");
+    if (numeroCartaoInput) numeroCartaoInput.focus();
+    return;
+  }
 
   const cards = document.querySelectorAll('.vehicle-card');
   const veiculos = [];
@@ -103,13 +108,13 @@ async function handleCustomerSubmit(e) {
 
   const btn = document.getElementById('btn-submit-customer');
   btn.disabled = true;
-  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Salvando Veículos...`;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Salvando Cadastro...`;
 
   try {
     const res = await fetch(`/api/recadastro/${TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ veiculos })
+      body: JSON.stringify({ veiculos, numero_cartao })
     });
 
     const data = await res.json();

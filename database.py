@@ -6,7 +6,6 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
-# No Vercel, o diretório raiz é somente leitura, então usa-se /tmp para o SQLite fallback
 if os.environ.get("VERCEL"):
     DB_PATH = "/tmp/msgwhats.db"
 else:
@@ -23,7 +22,6 @@ def is_supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_KEY)
 
 def supabase_request(endpoint, method="GET", data=None, params=None):
-    """Executa requisições REST diretamente para o Supabase PostgreSQL."""
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
@@ -65,6 +63,7 @@ def init_db():
             nome TEXT NOT NULL,
             telefone TEXT NOT NULL,
             token TEXT UNIQUE NOT NULL,
+            numero_cartao TEXT,
             status_envio TEXT DEFAULT 'Pendente',
             data_envio TEXT,
             status_cadastro TEXT DEFAULT 'Pendente',
@@ -72,6 +71,12 @@ def init_db():
             observacoes TEXT
         )
     ''')
+    
+    # Adicionar coluna numero_cartao caso tabela já exista sem ela
+    try:
+        cursor.execute("ALTER TABLE mensalistas ADD COLUMN numero_cartao TEXT")
+    except sqlite3.OperationalError:
+        pass # Coluna já existe
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS veiculos (
@@ -96,7 +101,7 @@ def init_db():
     cursor.execute('''
         INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES 
         ('nome_estacionamento', 'Estacionamento Iguatemi Brasília'),
-        ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor atualize os veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
+        ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor informe o número do seu cartão atual e atualize os veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
         ('intervalo_envio_segundos', '10')
     ''')
     
@@ -117,18 +122,18 @@ def seed_sample_data_if_empty():
     
     if count == 0:
         sample_mensalistas = [
-            ("Carlos Eduardo Silva", "5511999887766"),
-            ("Mariana Souza Santos", "5511988776655"),
-            ("Roberto Almeida Costa", "5511977665544"),
-            ("Fernanda Oliveira Lima", "5511966554433"),
-            ("Ricardo Pereira Gomes", "5511955443322")
+            ("Carlos Eduardo Silva", "5511999887766", "123456"),
+            ("Mariana Souza Santos", "5511988776655", "654321"),
+            ("Roberto Almeida Costa", "5511977665544", "789012"),
+            ("Fernanda Oliveira Lima", "5511966554433", "345678"),
+            ("Ricardo Pereira Gomes", "5511955443322", "901234")
         ]
         
-        for nome, telefone in sample_mensalistas:
+        for nome, telefone, cartao in sample_mensalistas:
             token = generate_token()
             cursor.execute(
-                "INSERT INTO mensalistas (nome, telefone, token) VALUES (?, ?, ?)",
-                (nome, telefone, token)
+                "INSERT INTO mensalistas (nome, telefone, token, numero_cartao) VALUES (?, ?, ?, ?)",
+                (nome, telefone, token, cartao)
             )
         
         cursor.execute("SELECT id FROM mensalistas LIMIT 1")
@@ -144,8 +149,6 @@ def seed_sample_data_if_empty():
         
         conn.commit()
     conn.close()
-
-# API Operations with Supabase Cloud + SQLite Local Dual Support
 
 def get_all_mensalistas():
     if is_supabase_enabled():
@@ -198,7 +201,7 @@ def get_mensalista_by_token(token):
     conn.close()
     return mensalista
 
-def add_mensalista(nome, telefone):
+def add_mensalista(nome, telefone, numero_cartao=None):
     token = generate_token()
     telefone_clean = ''.join(c for c in telefone if c.isdigit())
     if not telefone_clean.startswith('55') and len(telefone_clean) in [10, 11]:
@@ -208,22 +211,23 @@ def add_mensalista(nome, telefone):
         res = supabase_request("mensalistas", method="POST", data={
             "nome": nome,
             "telefone": telefone_clean,
-            "token": token
+            "token": token,
+            "numero_cartao": numero_cartao
         })
         return res[0]['id'] if res else None
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO mensalistas (nome, telefone, token) VALUES (?, ?, ?)",
-        (nome, telefone_clean, token)
+        "INSERT INTO mensalistas (nome, telefone, token, numero_cartao) VALUES (?, ?, ?, ?)",
+        (nome, telefone_clean, token, numero_cartao)
     )
     conn.commit()
     m_id = cursor.lastrowid
     conn.close()
     return m_id
 
-def update_mensalista_veiculos(token, list_veiculos):
+def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None):
     m = get_mensalista_by_token(token)
     if not m:
         return False, "Mensalista não encontrado"
@@ -249,10 +253,14 @@ def update_mensalista_veiculos(token, list_veiculos):
                     "placa": placa
                 })
                 
-        supabase_request(f"mensalistas?id=eq.{m_id}", method="PATCH", data={
+        patch_data = {
             "status_cadastro": "Atualizado",
             "data_atualizacao": now
-        })
+        }
+        if numero_cartao:
+            patch_data["numero_cartao"] = str(numero_cartao).strip()
+            
+        supabase_request(f"mensalistas?id=eq.{m_id}", method="PATCH", data=patch_data)
         return True, "Cadastro atualizado com sucesso!"
 
     conn = get_db_connection()
@@ -272,8 +280,8 @@ def update_mensalista_veiculos(token, list_veiculos):
             )
             
     cursor.execute(
-        "UPDATE mensalistas SET status_cadastro = 'Atualizado', data_atualizacao = ? WHERE id = ?",
-        (now, m_id)
+        "UPDATE mensalistas SET status_cadastro = 'Atualizado', data_atualizacao = ?, numero_cartao = COALESCE(?, numero_cartao) WHERE id = ?",
+        (now, numero_cartao, m_id)
     )
     conn.commit()
     conn.close()
