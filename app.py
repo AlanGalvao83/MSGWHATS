@@ -255,7 +255,7 @@ def api_exportar_mensalistas():
     
     headers = [
         "ID", "Nome do Mensalista", "CPF", "E-mail", "Tipo de Vínculo", "Loja / Empresa", "Nº Cartão NEPOS", "Telefone",
-        "Status Envio", "Status Recadastro", "Qtd Veículos", "Data Atualização", "Link Recadastro"
+        "Modelo Veículo", "Ano", "Cor", "Placa Liberada (LPR)", "Status Envio", "Status Recadastro", "Data Atualização", "Link Recadastro"
     ]
     
     ws.append(headers)
@@ -268,28 +268,63 @@ def api_exportar_mensalistas():
     row_count = 2
     for m in mensalistas:
         link = f"{host_url}/atualizar/{m['token']}"
-        qtd_veiculos = len(m.get('veiculos', []))
-        ws.append([
-            m['id'],
-            m['nome'],
-            m.get('cpf') or '-',
-            m.get('email') or '-',
-            m.get('tipo_vinculo') or 'Lojista / Funcionário',
-            m.get('nome_loja') or '-',
-            m.get('numero_cartao') or 'Pendente',
-            m['telefone'],
-            m['status_envio'],
-            m['status_cadastro'],
-            qtd_veiculos,
-            m['data_atualizacao'] or '-',
-            link
-        ])
-        for col_num in range(1, 14):
-            cell = ws.cell(row=row_count, column=col_num)
-            cell.border = thin_border
-            cell.alignment = align_center if col_num in [1, 3, 5, 7, 8, 9, 10, 11, 12] else align_left
-        row_count += 1
+        veiculos = m.get('veiculos', [])
+        cartao = m.get('numero_cartao') or 'Pendente'
+        vinculo = m.get('tipo_vinculo') or 'Lojista / Funcionário'
+        loja = m.get('nome_loja') or '-'
+        cpf = m.get('cpf') or '-'
+        email = m.get('email') or '-'
         
+        if veiculos:
+            for v in veiculos:
+                ws.append([
+                    m['id'],
+                    m['nome'],
+                    cpf,
+                    email,
+                    vinculo,
+                    loja,
+                    cartao,
+                    m['telefone'],
+                    v.get('modelo', '-'),
+                    v.get('ano', '-'),
+                    v.get('cor', '-'),
+                    v.get('placa', '-'),
+                    m['status_envio'],
+                    m['status_cadastro'],
+                    m['data_atualizacao'] or '-',
+                    link
+                ])
+                for col_num in range(1, 17):
+                    cell = ws.cell(row=row_count, column=col_num)
+                    cell.border = thin_border
+                    cell.alignment = align_center if col_num in [1, 3, 5, 7, 8, 10, 12, 13, 14, 15] else align_left
+                row_count += 1
+        else:
+            ws.append([
+                m['id'],
+                m['nome'],
+                cpf,
+                email,
+                vinculo,
+                loja,
+                cartao,
+                m['telefone'],
+                "-",
+                "-",
+                "-",
+                "-",
+                m['status_envio'],
+                m['status_cadastro'],
+                m['data_atualizacao'] or '-',
+                link
+            ])
+            for col_num in range(1, 17):
+                cell = ws.cell(row=row_count, column=col_num)
+                cell.border = thin_border
+                cell.alignment = align_center if col_num in [1, 3, 5, 7, 8, 10, 12, 13, 14, 15] else align_left
+            row_count += 1
+            
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)
         col_letter = openpyxl.utils.get_column_letter(col[0].column)

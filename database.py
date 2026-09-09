@@ -161,6 +161,13 @@ def seed_sample_data_if_empty():
 
 def get_all_mensalistas():
     if is_supabase_enabled():
+        joined = supabase_request("mensalistas", params={"select": "*,veiculos(*)", "order": "id.desc"})
+        if isinstance(joined, list):
+            for m in joined:
+                if 'veiculos' not in m or m['veiculos'] is None:
+                    m['veiculos'] = []
+            return joined
+
         mensalistas = supabase_request("mensalistas", params={"select": "*", "order": "id.desc"}) or []
         veiculos = supabase_request("veiculos", params={"select": "*"}) or []
         
@@ -190,13 +197,12 @@ def get_all_mensalistas():
 
 def get_mensalista_by_token(token):
     if is_supabase_enabled():
-        rows = supabase_request("mensalistas", params={"select": "*", "token": f"eq.{token}"})
+        rows = supabase_request("mensalistas", params={"select": "*,veiculos(*)", "token": f"eq.{token}"})
         if not rows or len(rows) == 0:
             return None
         m = rows[0]
-        m_id = m['id']
-        veiculos = supabase_request("veiculos", params={"select": "*", "mensalista_id": f"eq.{m_id}"}) or []
-        m['veiculos'] = veiculos
+        if 'veiculos' not in m or m['veiculos'] is None:
+            m['veiculos'] = []
         return m
 
     conn = get_db_connection()
