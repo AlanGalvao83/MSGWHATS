@@ -90,30 +90,32 @@ def api_import_csv():
     records = []
     
     try:
-        if filename.endswith('.csv'):
+        if filename.endswith('.csv') or filename.endswith('.txt'):
             raw_bytes = file.stream.read()
             text = ""
-            for encoding in ['utf-8-sig', 'utf-8', 'latin1', 'cp1252']:
+            for encoding in ['utf-8-sig', 'utf-8', 'latin1', 'cp1252', 'iso-8859-1']:
                 try:
                     text = raw_bytes.decode(encoding)
                     break
                 except Exception:
                     pass
                     
-            delimiter = ';' if ';' in text else (',' if ',' in text else '\t')
+            # Priorizar vírgula se presente na linha
+            delimiter = ',' if ',' in text else (';' if ';' in text else '\t')
             stream = io.StringIO(text, newline=None)
-            csv_input = csv.reader(stream, delimiter=delimiter)
+            csv_input = csv.reader(stream, delimiter=delimiter, skipinitialspace=True)
             
             headers = next(csv_input, None)
             
             for row in csv_input:
                 if row and len(row) >= 2:
-                    nome = row[0].strip()
-                    telefone = row[1].strip()
-                    numero_cartao = row[2].strip() if len(row) >= 3 and row[2] else None
-                    nome_loja = row[3].strip() if len(row) >= 4 and row[3] else None
+                    nome = str(row[0]).strip()
+                    telefone = str(row[1]).strip()
+                    numero_cartao = str(row[2]).strip() if len(row) >= 3 and row[2] else None
+                    nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
                     tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
                     
+                    # Garantir que não seja o próprio cabeçalho
                     if nome and telefone and not nome.lower().startswith('nome') and not nome.lower().startswith('mensalista'):
                         records.append({
                             'nome': nome,
