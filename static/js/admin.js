@@ -94,6 +94,7 @@ function renderMensalistasTable() {
   }
 
   tbody.innerHTML = filtered.map(m => {
+    const nomeLimpo = m.nome ? m.nome.split(';')[0].trim() : '';
     const envioBadge = m.status_envio === 'Enviado' 
       ? `<span class="badge badge-green"><i class="fa-solid fa-check"></i> Enviado</span>`
       : `<span class="badge badge-amber"><i class="fa-solid fa-clock"></i> Pendente</span>`;
@@ -108,36 +109,36 @@ function renderMensalistasTable() {
       : `<span style="color: var(--text-muted);">-</span>`;
 
     const cartaoDisplay = m.numero_cartao 
-      ? `<code style="font-size: 1rem; font-weight: bold; color: #818cf8; letter-spacing: 1px;">${m.numero_cartao}</code>` 
+      ? `<code style="font-size: 0.95rem; font-weight: bold; color: #818cf8; letter-spacing: 1px;">${m.numero_cartao}</code>` 
       : `<span style="color: var(--text-muted); font-size: 0.8rem;">Pendente</span>`;
 
     const isExterno = m.tipo_vinculo === 'Mensalista Externo';
     const vinculoDisplay = isExterno 
       ? `<span class="badge badge-amber"><i class="fa-solid fa-car"></i> Externo</span>` 
-      : `<div style="font-weight: 600; color: #e2e8f0;">🏬 ${m.nome_loja || 'Lojista'}</div>`;
+      : `<div style="font-weight: 600; color: #e2e8f0; font-size: 0.85rem;">🏬 ${m.nome_loja || 'Lojista'}</div>`;
 
     const cpfEmailDisplay = `
-      <div style="font-weight: 600; font-family: monospace; font-size: 0.85rem; color: #cbd5e1;">${m.cpf || '-'}</div>
-      <small style="color: var(--text-muted); font-size: 0.75rem;">${m.email || '-'}</small>
+      <div style="font-weight: 600; font-family: monospace; font-size: 0.82rem; color: #cbd5e1;">${m.cpf || '-'}</div>
+      <small style="color: var(--text-muted); font-size: 0.73rem;">${m.email || '-'}</small>
     `;
 
     return `
       <tr>
         <td>
-          <div style="font-weight: 600;">${m.nome}</div>
-          <small style="color: var(--text-muted); font-size: 0.75rem;">ID: #${m.id}</small>
+          <div style="font-weight: 600; font-size: 0.88rem;">${nomeLimpo}</div>
+          <small style="color: var(--text-muted); font-size: 0.72rem;">ID: #${m.id}</small>
         </td>
         <td>${cpfEmailDisplay}</td>
         <td>${vinculoDisplay}</td>
         <td>${cartaoDisplay}</td>
-        <td><code>${formatPhone(m.telefone)}</code></td>
+        <td><code style="font-size: 0.82rem;">${formatPhone(m.telefone)}</code></td>
         <td>${envioBadge}</td>
         <td>${cadastroBadge}</td>
-        <td>${veiculosTexto}</td>
+        <td style="text-align: center;">${veiculosTexto}</td>
         <td>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a href="${m.whatsapp_url}" target="_blank" onclick="marcarComoEnviado(${m.id})" class="btn btn-success btn-sm">
-              <i class="fa-brands fa-whatsapp"></i> WhatsApp Web
+          <div class="table-actions">
+            <a href="${m.whatsapp_url}" target="_blank" onclick="marcarComoEnviado(${m.id})" class="btn btn-success btn-sm" title="Enviar WhatsApp Web">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
             </a>
             <button onclick="copiarLink('${m.link_atualizacao}')" class="btn btn-secondary btn-sm" title="Copiar Link Individual">
               <i class="fa-solid fa-copy"></i> Link

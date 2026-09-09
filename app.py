@@ -119,7 +119,18 @@ def api_import_csv():
                 except Exception:
                     pass
                     
-            delimiter = ',' if ',' in text else (';' if ';' in text else '\t')
+            sample = text[:2000]
+            cnt_semi = sample.count(';')
+            cnt_tab = sample.count('\t')
+            cnt_comma = sample.count(',')
+            
+            if cnt_semi >= cnt_comma and cnt_semi >= cnt_tab and cnt_semi > 0:
+                delimiter = ';'
+            elif cnt_tab >= cnt_comma and cnt_tab > 0:
+                delimiter = '\t'
+            else:
+                delimiter = ','
+                
             stream = io.StringIO(text, newline=None)
             csv_input = csv.reader(stream, delimiter=delimiter, skipinitialspace=True)
             
@@ -127,7 +138,7 @@ def api_import_csv():
             
             for row in csv_input:
                 if row and len(row) >= 2:
-                    nome = str(row[0]).strip()
+                    nome = str(row[0]).strip().split(';')[0].strip()
                     telefone = str(row[1]).strip()
                     numero_cartao = str(row[2]).strip() if len(row) >= 3 and row[2] else None
                     nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
