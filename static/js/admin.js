@@ -24,7 +24,11 @@ async function loadConfiguracoes() {
     const res = await fetch('/api/configuracoes');
     configuracoesData = await res.json();
     document.getElementById('config-nome-estacionamento').value = configuracoesData.nome_estacionamento || '';
-    document.getElementById('config-mensagem-template').value = configuracoesData.mensagem_template || '';
+    
+    let templateText = configuracoesData.mensagem_template || '';
+    templateText = templateText.replace(/\\n/g, '\n');
+    document.getElementById('config-mensagem-template').value = templateText;
+    
     atualizarPréviaMensagem();
   } catch (err) {
     console.error("Erro ao carregar configurações:", err);

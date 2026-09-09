@@ -21,7 +21,7 @@ SUPABASE_KEY = (
 def is_supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_KEY)
 
-def supabase_request(endpoint, method="GET", data=None, params=None):
+def supabase_request(endpoint, method="GET", data=None, params=None, headers_extra=None):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
@@ -32,7 +32,9 @@ def supabase_request(endpoint, method="GET", data=None, params=None):
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
-    
+    if headers_extra:
+        headers.update(headers_extra)
+        
     body = json.dumps(data).encode("utf-8") if data is not None else None
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     
@@ -236,7 +238,6 @@ def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / F
     return m_id
 
 def add_mensalistas_bulk(list_records):
-    """Insere lista de mensalistas em lote (bulk insert ultrarrápido)."""
     if not list_records:
         return 0
         
@@ -266,7 +267,6 @@ def add_mensalistas_bulk(list_records):
         if res is not None:
             return len(records_to_insert)
         else:
-            # Se falhar a inserção em lote (ex: coluna ausente), tentar campo a campo sem campos novos
             fallback_records = []
             for r in records_to_insert:
                 fallback_records.append({
@@ -398,7 +398,13 @@ def get_configuracoes():
 
 def set_configuracao(chave, valor):
     if is_supabase_enabled():
-        supabase_request("configuracoes", method="POST", data={"chave": chave, "valor": valor})
+        # Usar prefer resolution=merge-duplicates para fazer UPSERT correto no Supabase
+        headers_upsert = {"Prefer": "resolution=merge-duplicates,return=representation"}
+        res = supabase_request("configuracoes", method="POST", data={"chave": chave, "valor": valor}, headers_extra=headers_upsert)
+        if res is None:
+            # Fallback com PATCH se UPSERT não estiver liberado
+            encoded_chave = urllib.parse.quote(chave)
+            supabase_request(f"configuracoes?chave=eq.{encoded_chave}", method="PATCH", data={"valor": valor})
         return
 
     conn = get_db_connection()
