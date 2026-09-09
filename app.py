@@ -14,7 +14,6 @@ database.init_db()
 database.seed_sample_data_if_empty()
 
 def get_public_host():
-    """Retorna o domínio público HTTPS configurado ou detectado para gerar os links do WhatsApp."""
     configs = database.get_configuracoes()
     dominio_custom = configs.get('dominio_publico', '').strip()
     if dominio_custom:
@@ -78,6 +77,8 @@ def api_add_mensalista():
     numero_cartao = data.get('numero_cartao', '').strip()
     tipo_vinculo = data.get('tipo_vinculo', 'Lojista / Funcionário').strip()
     nome_loja = data.get('nome_loja', '').strip()
+    cpf = data.get('cpf', '').strip()
+    email = data.get('email', '').strip()
     
     if not nome or not telefone:
         return jsonify({'error': 'Nome e telefone são obrigatórios.'}), 400
@@ -86,7 +87,9 @@ def api_add_mensalista():
         nome, telefone, 
         numero_cartao=numero_cartao, 
         tipo_vinculo=tipo_vinculo, 
-        nome_loja=nome_loja
+        nome_loja=nome_loja,
+        cpf=cpf,
+        email=email
     )
     return jsonify({'success': True, 'id': m_id}), 201
 
@@ -128,6 +131,8 @@ def api_import_csv():
                     telefone = str(row[1]).strip()
                     numero_cartao = str(row[2]).strip() if len(row) >= 3 and row[2] else None
                     nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
+                    cpf = str(row[4]).strip() if len(row) >= 5 and row[4] else None
+                    email = str(row[5]).strip() if len(row) >= 6 and row[5] else None
                     tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
                     
                     if nome and telefone and not nome.lower().startswith('nome') and not nome.lower().startswith('mensalista'):
@@ -136,7 +141,9 @@ def api_import_csv():
                             'telefone': telefone,
                             'numero_cartao': numero_cartao,
                             'tipo_vinculo': tipo_vinculo,
-                            'nome_loja': nome_loja
+                            'nome_loja': nome_loja,
+                            'cpf': cpf,
+                            'email': email
                         })
         elif filename.endswith('.xlsx') or filename.endswith('.xls'):
             wb = openpyxl.load_workbook(file)
@@ -147,6 +154,8 @@ def api_import_csv():
                     telefone = str(row[1]).strip()
                     numero_cartao = str(row[2]).strip() if len(row) >= 3 and row[2] else None
                     nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
+                    cpf = str(row[4]).strip() if len(row) >= 5 and row[4] else None
+                    email = str(row[5]).strip() if len(row) >= 6 and row[5] else None
                     tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
                     
                     if nome and telefone and not nome.lower().startswith('nome') and not nome.lower().startswith('mensalista'):
@@ -155,7 +164,9 @@ def api_import_csv():
                             'telefone': telefone,
                             'numero_cartao': numero_cartao,
                             'tipo_vinculo': tipo_vinculo,
-                            'nome_loja': nome_loja
+                            'nome_loja': nome_loja,
+                            'cpf': cpf,
+                            'email': email
                         })
         else:
             return jsonify({'error': 'Formato não suportado. Envie CSV ou Excel (.xlsx).'}), 400
@@ -189,6 +200,8 @@ def api_post_recadastro(token):
     numero_cartao = data.get('numero_cartao', '').strip()
     tipo_vinculo = data.get('tipo_vinculo', 'Lojista / Funcionário').strip()
     nome_loja = data.get('nome_loja', '').strip()
+    cpf = data.get('cpf', '').strip()
+    email = data.get('email', '').strip()
     
     if tipo_vinculo == 'Mensalista Externo':
         nome_loja = 'Mensalista Externo'
@@ -205,7 +218,9 @@ def api_post_recadastro(token):
         token, veiculos, 
         numero_cartao=numero_cartao, 
         tipo_vinculo=tipo_vinculo, 
-        nome_loja=nome_loja
+        nome_loja=nome_loja,
+        cpf=cpf,
+        email=email
     )
     if not success:
         return jsonify({'error': msg}), 400
@@ -239,7 +254,7 @@ def api_exportar_mensalistas():
     )
     
     headers = [
-        "ID", "Nome do Mensalista", "Tipo de Vínculo", "Loja / Empresa", "Nº Cartão NEPOS", "Telefone",
+        "ID", "Nome do Mensalista", "CPF", "E-mail", "Tipo de Vínculo", "Loja / Empresa", "Nº Cartão NEPOS", "Telefone",
         "Status Envio", "Status Recadastro", "Qtd Veículos", "Data Atualização", "Link Recadastro"
     ]
     
@@ -257,6 +272,8 @@ def api_exportar_mensalistas():
         ws.append([
             m['id'],
             m['nome'],
+            m.get('cpf') or '-',
+            m.get('email') or '-',
             m.get('tipo_vinculo') or 'Lojista / Funcionário',
             m.get('nome_loja') or '-',
             m.get('numero_cartao') or 'Pendente',
@@ -267,10 +284,10 @@ def api_exportar_mensalistas():
             m['data_atualizacao'] or '-',
             link
         ])
-        for col_num in range(1, 12):
+        for col_num in range(1, 14):
             cell = ws.cell(row=row_count, column=col_num)
             cell.border = thin_border
-            cell.alignment = align_center if col_num in [1, 3, 5, 6, 7, 8, 9, 10] else align_left
+            cell.alignment = align_center if col_num in [1, 3, 5, 7, 8, 9, 10, 11, 12] else align_left
         row_count += 1
         
     for col in ws.columns:
@@ -311,7 +328,7 @@ def api_exportar_wps():
     )
     
     headers = [
-        "ID Mensalista", "Nome do Mensalista", "Tipo Vínculo", "Loja / Empresa", "Nº Cartão NEPOS (6 dígitos)", "Telefone/WhatsApp",
+        "ID Mensalista", "Nome do Mensalista", "CPF", "E-mail", "Tipo Vínculo", "Loja / Empresa", "Nº Cartão NEPOS (6 dígitos)", "Telefone/WhatsApp",
         "Modelo do Veículo", "Ano", "Cor", "Placa Liberada (LPR)", "Data Recadastro"
     ]
     
@@ -329,12 +346,16 @@ def api_exportar_wps():
         cartao = m.get('numero_cartao') or 'Pendente'
         vinculo = m.get('tipo_vinculo') or 'Lojista / Funcionário'
         loja = m.get('nome_loja') or '-'
+        cpf = m.get('cpf') or '-'
+        email = m.get('email') or '-'
         
         if veiculos:
             for v in veiculos:
                 ws.append([
                     m['id'],
                     m['nome'],
+                    cpf,
+                    email,
                     vinculo,
                     loja,
                     cartao,
@@ -345,15 +366,17 @@ def api_exportar_wps():
                     v['placa'],
                     m['data_atualizacao'] or 'Pendente'
                 ])
-                for col_num in range(1, 12):
+                for col_num in range(1, 14):
                     cell = ws.cell(row=row_count, column=col_num)
                     cell.border = thin_border
-                    cell.alignment = align_center if col_num in [1, 3, 5, 6, 8, 10, 11] else align_left
+                    cell.alignment = align_center if col_num in [1, 3, 5, 7, 8, 10, 12, 13] else align_left
                 row_count += 1
         else:
             ws.append([
                 m['id'],
                 m['nome'],
+                cpf,
+                email,
                 vinculo,
                 loja,
                 cartao,
@@ -364,10 +387,10 @@ def api_exportar_wps():
                 "-",
                 "Pendente"
             ])
-            for col_num in range(1, 12):
+            for col_num in range(1, 14):
                 cell = ws.cell(row=row_count, column=col_num)
                 cell.border = thin_border
-                cell.alignment = align_center if col_num in [1, 3, 5, 6, 8, 10, 11] else align_left
+                cell.alignment = align_center if col_num in [1, 3, 5, 7, 8, 10, 12, 13] else align_left
             row_count += 1
             
     for col in ws.columns:

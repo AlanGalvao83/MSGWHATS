@@ -7,12 +7,23 @@ document.addEventListener('DOMContentLoaded', () => {
     addVehicleForm();
   }
   
-  // Inicializar visibilidade da loja
   const radioSelected = document.querySelector('input[name="tipo_vinculo"]:checked');
   if (radioSelected) {
     toggleLojaGroup(radioSelected.value);
   }
 });
+
+function handleCpfInput(input) {
+  let v = input.value.replace(/\D/g, '');
+  if (v.length > 11) v = v.slice(0, 11);
+  
+  if (v.length <= 11) {
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+    v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+  input.value = v;
+}
 
 function toggleLojaGroup(val) {
   const groupLoja = document.getElementById('group-nome-loja');
@@ -98,6 +109,24 @@ function handlePlacaInput(input) {
 async function handleCustomerSubmit(e) {
   e.preventDefault();
 
+  const cpfInput = document.getElementById('cpf-titular');
+  const cpf = cpfInput ? cpfInput.value.trim() : '';
+
+  const emailInput = document.getElementById('email-contato');
+  const email = emailInput ? emailInput.value.trim() : '';
+
+  if (!cpf || cpf.replace(/\D/g, '').length !== 11) {
+    alert("Por favor, informe um CPF válido com 11 dígitos.");
+    if (cpfInput) cpfInput.focus();
+    return;
+  }
+
+  if (!email || !email.includes('@')) {
+    alert("Por favor, informe um endereço de e-mail válido.");
+    if (emailInput) emailInput.focus();
+    return;
+  }
+
   const radioSelected = document.querySelector('input[name="tipo_vinculo"]:checked');
   const tipo_vinculo = radioSelected ? radioSelected.value : 'Lojista / Funcionário';
   
@@ -150,7 +179,7 @@ async function handleCustomerSubmit(e) {
     const res = await fetch(`/api/recadastro/${TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ veiculos, numero_cartao, tipo_vinculo, nome_loja })
+      body: JSON.stringify({ veiculos, numero_cartao, tipo_vinculo, nome_loja, cpf, email })
     });
 
     const data = await res.json();

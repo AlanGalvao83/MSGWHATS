@@ -72,6 +72,8 @@ def init_db():
             numero_cartao TEXT,
             tipo_vinculo TEXT DEFAULT 'Lojista / Funcionário',
             nome_loja TEXT,
+            cpf TEXT,
+            email TEXT,
             status_envio TEXT DEFAULT 'Pendente',
             data_envio TEXT,
             status_cadastro TEXT DEFAULT 'Pendente',
@@ -80,7 +82,7 @@ def init_db():
         )
     ''')
     
-    for col, col_type in [("numero_cartao", "TEXT"), ("tipo_vinculo", "TEXT DEFAULT 'Lojista / Funcionário'"), ("nome_loja", "TEXT")]:
+    for col, col_type in [("numero_cartao", "TEXT"), ("tipo_vinculo", "TEXT DEFAULT 'Lojista / Funcionário'"), ("nome_loja", "TEXT"), ("cpf", "TEXT"), ("email", "TEXT")]:
         try:
             cursor.execute(f"ALTER TABLE mensalistas ADD COLUMN {col} {col_type}")
         except sqlite3.OperationalError:
@@ -110,7 +112,7 @@ def init_db():
         INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES 
         ('nome_estacionamento', 'Estacionamento Iguatemi Brasília'),
         ('dominio_publico', 'https://msgwhats.vercel.app'),
-        ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor informe seu vínculo (loja ou mensalista externo), número do cartão e veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
+        ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor informe seu CPF, e-mail, número do cartão e veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
         ('intervalo_envio_segundos', '10')
     ''')
     
@@ -131,18 +133,16 @@ def seed_sample_data_if_empty():
     
     if count == 0:
         sample_mensalistas = [
-            ("Carlos Eduardo Silva", "5511999887766", "123456", "Lojista / Funcionário", "Lojas Renner"),
-            ("Mariana Souza Santos", "5511988776655", "654321", "Lojista / Funcionário", "Zara"),
-            ("Roberto Almeida Costa", "5511977665544", "789012", "Mensalista Externo", "Mensalista Externo"),
-            ("Fernanda Oliveira Lima", "5511966554433", "345678", "Lojista / Funcionário", "Outback"),
-            ("Ricardo Pereira Gomes", "5511955443322", "901234", "Mensalista Externo", "Mensalista Externo")
+            ("Carlos Eduardo Silva", "5511999887766", "123456", "Lojista / Funcionário", "Lojas Renner", "111.222.333-44", "carlos@email.com"),
+            ("Mariana Souza Santos", "5511988776655", "654321", "Lojista / Funcionário", "Zara", "222.333.444-55", "mariana@email.com"),
+            ("Roberto Almeida Costa", "5511977665544", "789012", "Mensalista Externo", "Mensalista Externo", "333.444.555-66", "roberto@email.com")
         ]
         
-        for nome, telefone, cartao, vinculo, loja in sample_mensalistas:
+        for nome, telefone, cartao, vinculo, loja, cpf, email in sample_mensalistas:
             token = generate_token()
             cursor.execute(
-                "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja) VALUES (?, ?, ?, ?, ?, ?)",
-                (nome, telefone, token, cartao, vinculo, loja)
+                "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, cpf, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (nome, telefone, token, cartao, vinculo, loja, cpf, email)
             )
         
         cursor.execute("SELECT id FROM mensalistas LIMIT 1")
@@ -210,7 +210,7 @@ def get_mensalista_by_token(token):
     conn.close()
     return mensalista
 
-def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / Funcionário", nome_loja=None):
+def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / Funcionário", nome_loja=None, cpf=None, email=None):
     token = generate_token()
     telefone_clean = ''.join(c for c in str(telefone) if c.isdigit())
     if not telefone_clean.startswith('55') and len(telefone_clean) in [10, 11]:
@@ -223,15 +223,17 @@ def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / F
             "token": token,
             "numero_cartao": numero_cartao,
             "tipo_vinculo": tipo_vinculo,
-            "nome_loja": nome_loja
+            "nome_loja": nome_loja,
+            "cpf": cpf,
+            "email": email
         })
         return res[0]['id'] if (res and isinstance(res, list) and len(res) > 0) else True
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja) VALUES (?, ?, ?, ?, ?, ?)",
-        (nome, telefone_clean, token, numero_cartao, tipo_vinculo, nome_loja)
+        "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, cpf, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (nome, telefone_clean, token, numero_cartao, tipo_vinculo, nome_loja, cpf, email)
     )
     conn.commit()
     m_id = cursor.lastrowid
@@ -257,7 +259,9 @@ def add_mensalistas_bulk(list_records):
                 "token": generate_token(),
                 "numero_cartao": item.get('numero_cartao'),
                 "tipo_vinculo": item.get('tipo_vinculo', 'Lojista / Funcionário'),
-                "nome_loja": item.get('nome_loja')
+                "nome_loja": item.get('nome_loja'),
+                "cpf": item.get('cpf'),
+                "email": item.get('email')
             })
             
     if not records_to_insert:
@@ -283,15 +287,15 @@ def add_mensalistas_bulk(list_records):
     count = 0
     for r in records_to_insert:
         cursor.execute(
-            "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja) VALUES (?, ?, ?, ?, ?, ?)",
-            (r['nome'], r['telefone'], r['token'], r['numero_cartao'], r['tipo_vinculo'], r['nome_loja'])
+            "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, cpf, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (r['nome'], r['telefone'], r['token'], r['numero_cartao'], r['tipo_vinculo'], r['nome_loja'], r.get('cpf'), r.get('email'))
         )
         count += 1
     conn.commit()
     conn.close()
     return count
 
-def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vinculo=None, nome_loja=None):
+def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vinculo=None, nome_loja=None, cpf=None, email=None):
     m = get_mensalista_by_token(token)
     if not m:
         return False, "Mensalista não encontrado"
@@ -327,6 +331,10 @@ def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vi
             patch_data["tipo_vinculo"] = tipo_vinculo
         if nome_loja is not None:
             patch_data["nome_loja"] = nome_loja.strip()
+        if cpf:
+            patch_data["cpf"] = str(cpf).strip()
+        if email:
+            patch_data["email"] = str(email).strip().lower()
             
         supabase_request(f"mensalistas?id=eq.{m_id}", method="PATCH", data=patch_data)
         return True, "Cadastro atualizado com sucesso!"
@@ -348,8 +356,8 @@ def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vi
             )
             
     cursor.execute(
-        "UPDATE mensalistas SET status_cadastro = 'Atualizado', data_atualizacao = ?, numero_cartao = COALESCE(?, numero_cartao), tipo_vinculo = COALESCE(?, tipo_vinculo), nome_loja = COALESCE(?, nome_loja) WHERE id = ?",
-        (now, numero_cartao, tipo_vinculo, nome_loja, m_id)
+        "UPDATE mensalistas SET status_cadastro = 'Atualizado', data_atualizacao = ?, numero_cartao = COALESCE(?, numero_cartao), tipo_vinculo = COALESCE(?, tipo_vinculo), nome_loja = COALESCE(?, nome_loja), cpf = COALESCE(?, cpf), email = COALESCE(?, email) WHERE id = ?",
+        (now, numero_cartao, tipo_vinculo, nome_loja, cpf, email, m_id)
     )
     conn.commit()
     conn.close()
@@ -399,11 +407,9 @@ def get_configuracoes():
 
 def set_configuracao(chave, valor):
     if is_supabase_enabled():
-        # Usar prefer resolution=merge-duplicates para fazer UPSERT correto no Supabase
         headers_upsert = {"Prefer": "resolution=merge-duplicates,return=representation"}
         res = supabase_request("configuracoes", method="POST", data={"chave": chave, "valor": valor}, headers_extra=headers_upsert)
         if res is None:
-            # Fallback com PATCH se UPSERT não estiver liberado
             encoded_chave = urllib.parse.quote(chave)
             supabase_request(f"configuracoes?chave=eq.{encoded_chave}", method="PATCH", data={"valor": valor})
         return

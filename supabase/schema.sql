@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS public.mensalistas (
     numero_cartao TEXT,
     tipo_vinculo TEXT DEFAULT 'Lojista / Funcionário',
     nome_loja TEXT,
+    cpf TEXT,
+    email TEXT,
     status_envio TEXT DEFAULT 'Pendente',
     data_envio TIMESTAMPTZ,
     status_cadastro TEXT DEFAULT 'Pendente',
@@ -24,6 +26,8 @@ CREATE TABLE IF NOT EXISTS public.mensalistas (
 ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS numero_cartao TEXT;
 ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS tipo_vinculo TEXT DEFAULT 'Lojista / Funcionário';
 ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS nome_loja TEXT;
+ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS cpf TEXT;
+ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS email TEXT;
 
 -- 2. Tabela Veículos (Liberação LPR / Placas)
 CREATE TABLE IF NOT EXISTS public.veiculos (
@@ -45,7 +49,8 @@ CREATE TABLE IF NOT EXISTS public.configuracoes (
 -- Inserir Configurações Padrão
 INSERT INTO public.configuracoes (chave, valor) VALUES
     ('nome_estacionamento', 'Estacionamento Iguatemi Brasília'),
-    ('mensagem_template', 'Olá {nome}, tudo bem? 🚗✨\n\nEstamos migrando nosso sistema de controle para leitura automática de placas (LPR)!\n\nAtualize o número do seu cartão, vínculo (loja ou mensalista externo) e os veículos da sua mensalidade no link seguro abaixo:\n\n👉 {link}\n\nObrigado!'),
+    ('dominio_publico', 'https://msgwhats.vercel.app'),
+    ('mensagem_template', 'Olá {nome}, tudo bem? 🚗✨\n\nEstamos migrando nosso sistema de controle para leitura automática de placas (LPR)!\n\nAtualize seu CPF, e-mail, número do cartão e os veículos da sua mensalidade no link seguro abaixo:\n\n👉 {link}\n\nObrigado!'),
     ('intervalo_envio_segundos', '10')
 ON CONFLICT (chave) DO NOTHING;
 
@@ -68,10 +73,10 @@ CREATE POLICY "Permitir leitura publica de configuracoes" ON public.configuracoe
 CREATE POLICY "Permitir atualizacao publica de configuracoes" ON public.configuracoes FOR UPDATE USING (true);
 
 -- Dados Demonstrativos Iniciais
-INSERT INTO public.mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, status_envio, status_cadastro) VALUES
-    ('Carlos Eduardo Silva', '5511999887766', 'demo_token_carlos', '123456', 'Lojista / Funcionário', 'Lojas Renner', 'Enviado', 'Atualizado'),
-    ('Mariana Souza Santos', '5511988776655', 'demo_token_mariana', '654321', 'Lojista / Funcionário', 'Zara', 'Pendente', 'Pendente'),
-    ('Roberto Almeida Costa', '5511977665544', 'demo_token_roberto', '789012', 'Mensalista Externo', 'Mensalista Externo', 'Pendente', 'Pendente')
+INSERT INTO public.mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, cpf, email, status_envio, status_cadastro) VALUES
+    ('Carlos Eduardo Silva', '5511999887766', 'demo_token_carlos', '123456', 'Lojista / Funcionário', 'Lojas Renner', '111.222.333-44', 'carlos@email.com', 'Enviado', 'Atualizado'),
+    ('Mariana Souza Santos', '5511988776655', 'demo_token_mariana', '654321', 'Lojista / Funcionário', 'Zara', '222.333.444-55', 'mariana@email.com', 'Pendente', 'Pendente'),
+    ('Roberto Almeida Costa', '5511977665544', 'demo_token_roberto', '789012', 'Mensalista Externo', 'Mensalista Externo', '333.444.555-66', 'roberto@email.com', 'Pendente', 'Pendente')
 ON CONFLICT (token) DO NOTHING;
 
 INSERT INTO public.veiculos (mensalista_id, modelo, ano, cor, placa) 

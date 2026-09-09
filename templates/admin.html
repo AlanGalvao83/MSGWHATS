@@ -113,7 +113,7 @@
         </div>
 
         <div style="margin-bottom: 1rem; display: flex; gap: 1rem;">
-          <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por nome, loja, cartão, telefone ou status..." onkeyup="renderMensalistasTable()">
+          <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por nome, cpf, email, loja, cartão, telefone ou status..." onkeyup="renderMensalistasTable()">
         </div>
 
         <div class="table-responsive">
@@ -121,6 +121,7 @@
             <thead>
               <tr>
                 <th>Mensalista</th>
+                <th>CPF / E-mail</th>
                 <th>Vínculo / Loja</th>
                 <th>Nº Cartão (NEPOS)</th>
                 <th>Telefone</th>
@@ -197,6 +198,7 @@
             <thead>
               <tr>
                 <th>Mensalista</th>
+                <th>CPF</th>
                 <th>Vínculo / Loja</th>
                 <th>Nº Cartão (NEPOS)</th>
                 <th>Telefone</th>
@@ -263,7 +265,7 @@
         <button class="btn btn-secondary btn-sm" onclick="closeImportModal()">&times;</button>
       </div>
       <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-        Envie um arquivo CSV ou Excel contendo as colunas: <strong>Nome</strong> (1ª col), <strong>Telefone</strong> (2ª col), <strong>Cartão (6 dígitos)</strong> (3ª col) e <strong>Loja / Vínculo</strong> (4ª col).
+        Envie um arquivo CSV ou Excel contendo as colunas: <strong>Nome</strong> (1ª), <strong>Telefone</strong> (2ª), <strong>Cartão</strong> (3ª), <strong>Loja</strong> (4ª), <strong>CPF</strong> (5ª) e <strong>E-mail</strong> (6ª).
       </p>
       <form id="form-import" onsubmit="handleImportSubmit(event)">
         <div class="form-group">
@@ -286,12 +288,22 @@
       </div>
       <form onsubmit="handleAddSubmit(event)">
         <div class="form-group">
-          <label class="form-label">Nome Completo</label>
+          <label class="form-label">Nome Completo *</label>
           <input type="text" id="add-nome" class="form-control" placeholder="Ex: João da Silva" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Telefone / WhatsApp (com DDD)</label>
+          <label class="form-label">Telefone / WhatsApp (com DDD) *</label>
           <input type="text" id="add-telefone" class="form-control" placeholder="Ex: 61999998888" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label">CPF</label>
+            <input type="text" id="add-cpf" class="form-control" placeholder="Ex: 000.000.000-00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail</label>
+            <input type="email" id="add-email" class="form-control" placeholder="Ex: joao@email.com">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Tipo de Vínculo</label>
