@@ -6,10 +6,18 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "msgwhats.db")
+# No Vercel, o diretório raiz é somente leitura, então usa-se /tmp para o SQLite fallback
+if os.environ.get("VERCEL"):
+    DB_PATH = "/tmp/msgwhats.db"
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "msgwhats.db")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip('/')
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+SUPABASE_KEY = (
+    os.environ.get("SUPABASE_KEY", "") or 
+    os.environ.get("SUPABASE_PUBLISHABLE_KEY", "") or 
+    os.environ.get("SUPABASE_ANON_KEY", "")
+)
 
 def is_supabase_enabled():
     return bool(SUPABASE_URL and SUPABASE_KEY)
@@ -144,7 +152,6 @@ def get_all_mensalistas():
         mensalistas = supabase_request("mensalistas", params={"select": "*", "order": "id.desc"}) or []
         veiculos = supabase_request("veiculos", params={"select": "*"}) or []
         
-        # Mapear veículos aos mensalistas
         veiculos_map = {}
         for v in veiculos:
             m_id = v.get('mensalista_id')
@@ -225,10 +232,8 @@ def update_mensalista_veiculos(token, list_veiculos):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if is_supabase_enabled():
-        # Deletar veículos anteriores
         supabase_request(f"veiculos?mensalista_id=eq.{m_id}", method="DELETE")
         
-        # Inserir novos
         for v in list_veiculos:
             modelo = v.get('modelo', '').strip()
             ano = str(v.get('ano', '')).strip()
@@ -244,7 +249,6 @@ def update_mensalista_veiculos(token, list_veiculos):
                     "placa": placa
                 })
                 
-        # Atualizar status mensalista
         supabase_request(f"mensalistas?id=eq.{m_id}", method="PATCH", data={
             "status_cadastro": "Atualizado",
             "data_atualizacao": now
