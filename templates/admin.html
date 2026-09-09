@@ -113,7 +113,7 @@
         </div>
 
         <div style="margin-bottom: 1rem; display: flex; gap: 1rem;">
-          <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por nome, cartão, telefone ou status..." onkeyup="renderMensalistasTable()">
+          <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por nome, loja, cartão, telefone ou status..." onkeyup="renderMensalistasTable()">
         </div>
 
         <div class="table-responsive">
@@ -121,6 +121,7 @@
             <thead>
               <tr>
                 <th>Mensalista</th>
+                <th>Vínculo / Loja</th>
                 <th>Nº Cartão (NEPOS)</th>
                 <th>Telefone</th>
                 <th>Status Envio</th>
@@ -196,6 +197,7 @@
             <thead>
               <tr>
                 <th>Mensalista</th>
+                <th>Vínculo / Loja</th>
                 <th>Nº Cartão (NEPOS)</th>
                 <th>Telefone</th>
                 <th>Modelo</th>
@@ -253,7 +255,7 @@
         <button class="btn btn-secondary btn-sm" onclick="closeImportModal()">&times;</button>
       </div>
       <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-        Envie um arquivo CSV ou Excel contendo as colunas: <strong>Nome</strong> (1ª coluna), <strong>Telefone</strong> (2ª coluna) e opcionalmente <strong>Cartão (6 dígitos)</strong> (3ª coluna).
+        Envie um arquivo CSV ou Excel contendo as colunas: <strong>Nome</strong> (1ª col), <strong>Telefone</strong> (2ª col), <strong>Cartão (6 dígitos)</strong> (3ª col) e <strong>Loja / Vínculo</strong> (4ª col).
       </p>
       <form id="form-import" onsubmit="handleImportSubmit(event)">
         <div class="form-group">
@@ -281,10 +283,21 @@
         </div>
         <div class="form-group">
           <label class="form-label">Telefone / WhatsApp (com DDD)</label>
-          <input type="text" id="add-telefone" class="form-control" placeholder="Ex: 11999998888" required>
+          <input type="text" id="add-telefone" class="form-control" placeholder="Ex: 61999998888" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Nº do Cartão de Estacionamento NEPOS (6 dígitos)</label>
+          <label class="form-label">Tipo de Vínculo</label>
+          <select id="add-vinculo" class="form-control" onchange="toggleAddModalLoja(this.value)">
+            <option value="Lojista / Funcionário">🏬 Lojista / Funcionário</option>
+            <option value="Mensalista Externo">🚗 Mensalista Externo</option>
+          </select>
+        </div>
+        <div class="form-group" id="add-group-loja">
+          <label class="form-label">Nome ou Nº da Loja / Empresa</label>
+          <input type="text" id="add-loja" class="form-control" placeholder="Ex: Lojas Renner / Outback">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nº do Cartão NEPOS (6 dígitos)</label>
           <input type="text" id="add-cartao" class="form-control" placeholder="Ex: 123456" maxlength="6" pattern="[0-9]{6}" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">

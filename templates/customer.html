@@ -33,6 +33,33 @@
       </div>
 
       <form id="customer-form" onsubmit="handleCustomerSubmit(event)">
+        <!-- Tipo de Vínculo e Loja -->
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-glow); margin-bottom: 1.5rem;">
+          <label class="form-label" style="color: #818cf8; font-size: 0.9rem; margin-bottom: 0.75rem;">
+            <i class="fa-solid fa-briefcase"></i> Tipo de Vínculo com o Shopping *
+          </label>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+            <label style="background: rgba(30, 41, 69, 0.6); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-card); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main); font-weight: 600; font-size: 0.9rem;">
+              <input type="radio" name="tipo_vinculo" value="Lojista / Funcionário" onchange="toggleLojaGroup(this.value)" {% if mensalista.tipo_vinculo != 'Mensalista Externo' %}checked{% endif %}>
+              🏬 Lojista / Funcionário
+            </label>
+            <label style="background: rgba(30, 41, 69, 0.6); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-card); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main); font-weight: 600; font-size: 0.9rem;">
+              <input type="radio" name="tipo_vinculo" value="Mensalista Externo" onchange="toggleLojaGroup(this.value)" {% if mensalista.tipo_vinculo == 'Mensalista Externo' %}checked{% endif %}>
+              🚗 Mensalista Externo
+            </label>
+          </div>
+
+          <div id="group-nome-loja" class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Nome ou Número da Loja / Empresa *</label>
+            <input type="text" id="nome-loja" class="form-control" placeholder="Ex: Lojas Renner / Outback / Zara / Loja 102" value="{{ mensalista.nome_loja or '' }}">
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">
+              Informe em qual loja do Shopping Iguatemi Brasília você trabalha.
+            </small>
+          </div>
+        </div>
+
+        <!-- Número do Cartão NEPOS -->
         <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-glow); margin-bottom: 1.5rem;">
           <label class="form-label" style="color: #818cf8; font-size: 0.9rem;">
             <i class="fa-solid fa-id-card"></i> Número do Cartão de Estacionamento NEPOS (6 dígitos) *

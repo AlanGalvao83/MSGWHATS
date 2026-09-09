@@ -62,9 +62,13 @@ function renderMensalistasTable() {
   
   const filtered = mensalistasData.filter(m => {
     const cartaoStr = m.numero_cartao || '';
+    const lojaStr = m.nome_loja || '';
+    const vinculoStr = m.tipo_vinculo || '';
     return m.nome.toLowerCase().includes(search) || 
            m.telefone.includes(search) || 
            cartaoStr.includes(search) ||
+           lojaStr.toLowerCase().includes(search) ||
+           vinculoStr.toLowerCase().includes(search) ||
            m.status_envio.toLowerCase().includes(search) ||
            m.status_cadastro.toLowerCase().includes(search);
   });
@@ -72,7 +76,7 @@ function renderMensalistasTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
           Nenhum mensalista encontrado.
         </td>
       </tr>
@@ -98,12 +102,18 @@ function renderMensalistasTable() {
       ? `<code style="font-size: 1rem; font-weight: bold; color: #818cf8; letter-spacing: 1px;">${m.numero_cartao}</code>` 
       : `<span style="color: var(--text-muted); font-size: 0.8rem;">Pendente</span>`;
 
+    const isExterno = m.tipo_vinculo === 'Mensalista Externo';
+    const vinculoDisplay = isExterno 
+      ? `<span class="badge badge-amber"><i class="fa-solid fa-car"></i> Externo</span>` 
+      : `<div style="font-weight: 600; color: #e2e8f0;">🏬 ${m.nome_loja || 'Lojista'}</div>`;
+
     return `
       <tr>
         <td>
           <div style="font-weight: 600;">${m.nome}</div>
           <small style="color: var(--text-muted); font-size: 0.75rem;">ID: #${m.id}</small>
         </td>
+        <td>${vinculoDisplay}</td>
         <td>${cartaoDisplay}</td>
         <td><code>${formatPhone(m.telefone)}</code></td>
         <td>${envioBadge}</td>
@@ -136,6 +146,7 @@ function renderVeiculosTable() {
       m.veiculos.forEach(v => {
         rows.push({
           mensalista: m.nome,
+          loja: m.nome_loja || m.tipo_vinculo || 'Lojista',
           cartao: m.numero_cartao || 'Pendente',
           telefone: m.telefone,
           modelo: v.modelo,
@@ -151,7 +162,7 @@ function renderVeiculosTable() {
   if (rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+        <td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">
           Nenhum veículo cadastrado pelos mensalistas até o momento.
         </td>
       </tr>
@@ -162,6 +173,7 @@ function renderVeiculosTable() {
   tbody.innerHTML = rows.map(r => `
     <tr>
       <td><strong>${r.mensalista}</strong></td>
+      <td><span style="color: #cbd5e1; font-weight: 600;">${r.loja}</span></td>
       <td><code style="color: #818cf8; font-weight: bold;">${r.cartao}</code></td>
       <td><code>${formatPhone(r.telefone)}</code></td>
       <td>${r.modelo}</td>
@@ -227,22 +239,32 @@ function closeAddModal() {
   document.getElementById('modal-add').classList.remove('active');
 }
 
+function toggleAddModalLoja(val) {
+  const group = document.getElementById('add-group-loja');
+  if (group) {
+    group.style.display = val === 'Mensalista Externo' ? 'none' : 'block';
+  }
+}
+
 async function handleAddSubmit(e) {
   e.preventDefault();
   const nome = document.getElementById('add-nome').value;
   const telefone = document.getElementById('add-telefone').value;
+  const tipo_vinculo = document.getElementById('add-vinculo').value;
+  const nome_loja = tipo_vinculo === 'Mensalista Externo' ? 'Mensalista Externo' : document.getElementById('add-loja').value;
   const numero_cartao = document.getElementById('add-cartao').value;
 
   const res = await fetch('/api/mensalistas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone, numero_cartao })
+    body: JSON.stringify({ nome, telefone, numero_cartao, tipo_vinculo, nome_loja })
   });
 
   if (res.ok) {
     closeAddModal();
     document.getElementById('add-nome').value = '';
     document.getElementById('add-telefone').value = '';
+    document.getElementById('add-loja').value = '';
     document.getElementById('add-cartao').value = '';
     loadData();
   } else {

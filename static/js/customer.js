@@ -6,7 +6,27 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     addVehicleForm();
   }
+  
+  // Inicializar visibilidade da loja
+  const radioSelected = document.querySelector('input[name="tipo_vinculo"]:checked');
+  if (radioSelected) {
+    toggleLojaGroup(radioSelected.value);
+  }
 });
+
+function toggleLojaGroup(val) {
+  const groupLoja = document.getElementById('group-nome-loja');
+  const inputLoja = document.getElementById('nome-loja');
+  if (val === 'Mensalista Externo') {
+    if (groupLoja) groupLoja.style.display = 'none';
+    if (inputLoja) inputLoja.value = 'Mensalista Externo';
+  } else {
+    if (groupLoja) groupLoja.style.display = 'block';
+    if (inputLoja && inputLoja.value === 'Mensalista Externo') {
+      inputLoja.value = '';
+    }
+  }
+}
 
 function addVehicleForm(data = {}) {
   vehicleCount++;
@@ -78,6 +98,22 @@ function handlePlacaInput(input) {
 async function handleCustomerSubmit(e) {
   e.preventDefault();
 
+  const radioSelected = document.querySelector('input[name="tipo_vinculo"]:checked');
+  const tipo_vinculo = radioSelected ? radioSelected.value : 'Lojista / Funcionário';
+  
+  const inputLoja = document.getElementById('nome-loja');
+  let nome_loja = inputLoja ? inputLoja.value.trim() : '';
+
+  if (tipo_vinculo === 'Lojista / Funcionário' && !nome_loja) {
+    alert("Por favor, informe o nome ou número da sua loja / empresa.");
+    if (inputLoja) inputLoja.focus();
+    return;
+  }
+
+  if (tipo_vinculo === 'Mensalista Externo') {
+    nome_loja = 'Mensalista Externo';
+  }
+
   const numeroCartaoInput = document.getElementById('numero-cartao');
   const numero_cartao = numeroCartaoInput ? numeroCartaoInput.value.trim() : '';
 
@@ -114,7 +150,7 @@ async function handleCustomerSubmit(e) {
     const res = await fetch(`/api/recadastro/${TOKEN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ veiculos, numero_cartao })
+      body: JSON.stringify({ veiculos, numero_cartao, tipo_vinculo, nome_loja })
     });
 
     const data = await res.json();

@@ -64,6 +64,8 @@ def init_db():
             telefone TEXT NOT NULL,
             token TEXT UNIQUE NOT NULL,
             numero_cartao TEXT,
+            tipo_vinculo TEXT DEFAULT 'Lojista / Funcionário',
+            nome_loja TEXT,
             status_envio TEXT DEFAULT 'Pendente',
             data_envio TEXT,
             status_cadastro TEXT DEFAULT 'Pendente',
@@ -72,11 +74,12 @@ def init_db():
         )
     ''')
     
-    # Adicionar coluna numero_cartao caso tabela já exista sem ela
-    try:
-        cursor.execute("ALTER TABLE mensalistas ADD COLUMN numero_cartao TEXT")
-    except sqlite3.OperationalError:
-        pass # Coluna já existe
+    # Adicionar colunas se tabela já existir
+    for col, col_type in [("numero_cartao", "TEXT"), ("tipo_vinculo", "TEXT DEFAULT 'Lojista / Funcionário'"), ("nome_loja", "TEXT")]:
+        try:
+            cursor.execute(f"ALTER TABLE mensalistas ADD COLUMN {col} {col_type}")
+        except sqlite3.OperationalError:
+            pass
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS veiculos (
@@ -101,7 +104,7 @@ def init_db():
     cursor.execute('''
         INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES 
         ('nome_estacionamento', 'Estacionamento Iguatemi Brasília'),
-        ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor informe o número do seu cartão atual e atualize os veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
+        ('mensagem_template', 'Olá {nome}, tudo bem?\n\nEstamos migrando nosso sistema de controle do estacionamento para leitura de placas! 🚗✨\n\nPara garantir seu acesso sem interrupções, por favor informe seu vínculo (loja ou mensalista externo), número do cartão e veículos cadastrados no link abaixo:\n\n👉 {link}\n\nObrigado!'),
         ('intervalo_envio_segundos', '10')
     ''')
     
@@ -122,18 +125,18 @@ def seed_sample_data_if_empty():
     
     if count == 0:
         sample_mensalistas = [
-            ("Carlos Eduardo Silva", "5511999887766", "123456"),
-            ("Mariana Souza Santos", "5511988776655", "654321"),
-            ("Roberto Almeida Costa", "5511977665544", "789012"),
-            ("Fernanda Oliveira Lima", "5511966554433", "345678"),
-            ("Ricardo Pereira Gomes", "5511955443322", "901234")
+            ("Carlos Eduardo Silva", "5511999887766", "123456", "Lojista / Funcionário", "Lojas Renner"),
+            ("Mariana Souza Santos", "5511988776655", "654321", "Lojista / Funcionário", "Zara"),
+            ("Roberto Almeida Costa", "5511977665544", "789012", "Mensalista Externo", "Mensalista Externo"),
+            ("Fernanda Oliveira Lima", "5511966554433", "345678", "Lojista / Funcionário", "Outback"),
+            ("Ricardo Pereira Gomes", "5511955443322", "901234", "Mensalista Externo", "Mensalista Externo")
         ]
         
-        for nome, telefone, cartao in sample_mensalistas:
+        for nome, telefone, cartao, vinculo, loja in sample_mensalistas:
             token = generate_token()
             cursor.execute(
-                "INSERT INTO mensalistas (nome, telefone, token, numero_cartao) VALUES (?, ?, ?, ?)",
-                (nome, telefone, token, cartao)
+                "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja) VALUES (?, ?, ?, ?, ?, ?)",
+                (nome, telefone, token, cartao, vinculo, loja)
             )
         
         cursor.execute("SELECT id FROM mensalistas LIMIT 1")
@@ -201,7 +204,7 @@ def get_mensalista_by_token(token):
     conn.close()
     return mensalista
 
-def add_mensalista(nome, telefone, numero_cartao=None):
+def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / Funcionário", nome_loja=None):
     token = generate_token()
     telefone_clean = ''.join(c for c in telefone if c.isdigit())
     if not telefone_clean.startswith('55') and len(telefone_clean) in [10, 11]:
@@ -212,22 +215,24 @@ def add_mensalista(nome, telefone, numero_cartao=None):
             "nome": nome,
             "telefone": telefone_clean,
             "token": token,
-            "numero_cartao": numero_cartao
+            "numero_cartao": numero_cartao,
+            "tipo_vinculo": tipo_vinculo,
+            "nome_loja": nome_loja
         })
         return res[0]['id'] if res else None
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO mensalistas (nome, telefone, token, numero_cartao) VALUES (?, ?, ?, ?)",
-        (nome, telefone_clean, token, numero_cartao)
+        "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja) VALUES (?, ?, ?, ?, ?, ?)",
+        (nome, telefone_clean, token, numero_cartao, tipo_vinculo, nome_loja)
     )
     conn.commit()
     m_id = cursor.lastrowid
     conn.close()
     return m_id
 
-def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None):
+def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vinculo=None, nome_loja=None):
     m = get_mensalista_by_token(token)
     if not m:
         return False, "Mensalista não encontrado"
@@ -259,6 +264,10 @@ def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None):
         }
         if numero_cartao:
             patch_data["numero_cartao"] = str(numero_cartao).strip()
+        if tipo_vinculo:
+            patch_data["tipo_vinculo"] = tipo_vinculo
+        if nome_loja is not None:
+            patch_data["nome_loja"] = nome_loja.strip()
             
         supabase_request(f"mensalistas?id=eq.{m_id}", method="PATCH", data=patch_data)
         return True, "Cadastro atualizado com sucesso!"
@@ -280,8 +289,8 @@ def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None):
             )
             
     cursor.execute(
-        "UPDATE mensalistas SET status_cadastro = 'Atualizado', data_atualizacao = ?, numero_cartao = COALESCE(?, numero_cartao) WHERE id = ?",
-        (now, numero_cartao, m_id)
+        "UPDATE mensalistas SET status_cadastro = 'Atualizado', data_atualizacao = ?, numero_cartao = COALESCE(?, numero_cartao), tipo_vinculo = COALESCE(?, tipo_vinculo), nome_loja = COALESCE(?, nome_loja) WHERE id = ?",
+        (now, numero_cartao, tipo_vinculo, nome_loja, m_id)
     )
     conn.commit()
     conn.close()

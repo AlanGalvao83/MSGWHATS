@@ -60,11 +60,18 @@ def api_add_mensalista():
     nome = data.get('nome', '').strip()
     telefone = data.get('telefone', '').strip()
     numero_cartao = data.get('numero_cartao', '').strip()
+    tipo_vinculo = data.get('tipo_vinculo', 'Lojista / Funcionário').strip()
+    nome_loja = data.get('nome_loja', '').strip()
     
     if not nome or not telefone:
         return jsonify({'error': 'Nome e telefone são obrigatórios.'}), 400
         
-    m_id = database.add_mensalista(nome, telefone, numero_cartao=numero_cartao)
+    m_id = database.add_mensalista(
+        nome, telefone, 
+        numero_cartao=numero_cartao, 
+        tipo_vinculo=tipo_vinculo, 
+        nome_loja=nome_loja
+    )
     return jsonify({'success': True, 'id': m_id}), 201
 
 @app.route('/api/mensalistas/<int:m_id>', methods=['DELETE'])
@@ -96,8 +103,11 @@ def api_import_csv():
                     nome = row[0].strip()
                     telefone = row[1].strip()
                     numero_cartao = row[2].strip() if len(row) >= 3 else None
+                    nome_loja = row[3].strip() if len(row) >= 4 else None
+                    tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
+                    
                     if nome and telefone and not nome.lower().startswith('nome'):
-                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao)
+                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao, tipo_vinculo=tipo_vinculo, nome_loja=nome_loja)
                         importados += 1
         elif filename.endswith('.xlsx') or filename.endswith('.xls'):
             wb = openpyxl.load_workbook(file)
@@ -107,8 +117,11 @@ def api_import_csv():
                     nome = str(row[0]).strip()
                     telefone = str(row[1]).strip()
                     numero_cartao = str(row[2]).strip() if len(row) >= 3 and row[2] else None
+                    nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
+                    tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
+                    
                     if nome and telefone and not nome.lower().startswith('nome'):
-                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao)
+                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao, tipo_vinculo=tipo_vinculo, nome_loja=nome_loja)
                         importados += 1
         else:
             return jsonify({'error': 'Formato não suportado. Envie CSV ou Excel (.xlsx).'}), 400
@@ -139,14 +152,26 @@ def api_post_recadastro(token):
     data = request.json or {}
     veiculos = data.get('veiculos', [])
     numero_cartao = data.get('numero_cartao', '').strip()
+    tipo_vinculo = data.get('tipo_vinculo', 'Lojista / Funcionário').strip()
+    nome_loja = data.get('nome_loja', '').strip()
     
+    if tipo_vinculo == 'Mensalista Externo':
+        nome_loja = 'Mensalista Externo'
+    elif not nome_loja:
+        return jsonify({'error': 'Por favor, informe o nome ou número da sua loja/empresa.'}), 400
+        
     if not numero_cartao or len(numero_cartao) != 6 or not numero_cartao.isdigit():
         return jsonify({'error': 'Por favor, informe o número do cartão de 6 dígitos.'}), 400
 
     if not veiculos or not isinstance(veiculos, list):
         return jsonify({'error': 'Informe ao menos 1 veículo com Modelo e Placa.'}), 400
         
-    success, msg = database.update_mensalista_veiculos(token, veiculos, numero_cartao=numero_cartao)
+    success, msg = database.update_mensalista_veiculos(
+        token, veiculos, 
+        numero_cartao=numero_cartao, 
+        tipo_vinculo=tipo_vinculo, 
+        nome_loja=nome_loja
+    )
     if not success:
         return jsonify({'error': msg}), 400
         
@@ -159,7 +184,6 @@ def api_marcar_enviado(m_id):
 
 @app.route('/api/exportar-mensalistas', methods=['GET'])
 def api_exportar_mensalistas():
-    """Exporta a lista de mensalistas completa em Excel (.xlsx)."""
     mensalistas = database.get_all_mensalistas()
     host_url = request.host_url.rstrip('/')
     
@@ -180,7 +204,7 @@ def api_exportar_mensalistas():
     )
     
     headers = [
-        "ID", "Nome do Mensalista", "Nº Cartão NEPOS", "Telefone",
+        "ID", "Nome do Mensalista", "Tipo de Vínculo", "Loja / Empresa", "Nº Cartão NEPOS", "Telefone",
         "Status Envio", "Status Recadastro", "Qtd Veículos", "Data Atualização", "Link Recadastro"
     ]
     
@@ -198,6 +222,8 @@ def api_exportar_mensalistas():
         ws.append([
             m['id'],
             m['nome'],
+            m.get('tipo_vinculo') or 'Lojista / Funcionário',
+            m.get('nome_loja') or '-',
             m.get('numero_cartao') or 'Pendente',
             m['telefone'],
             m['status_envio'],
@@ -206,10 +232,10 @@ def api_exportar_mensalistas():
             m['data_atualizacao'] or '-',
             link
         ])
-        for col_num in range(1, 10):
+        for col_num in range(1, 12):
             cell = ws.cell(row=row_count, column=col_num)
             cell.border = thin_border
-            cell.alignment = align_center if col_num in [1, 3, 4, 5, 6, 7, 8] else align_left
+            cell.alignment = align_center if col_num in [1, 3, 5, 6, 7, 8, 9, 10] else align_left
         row_count += 1
         
     for col in ws.columns:
@@ -250,7 +276,7 @@ def api_exportar_wps():
     )
     
     headers = [
-        "ID Mensalista", "Nome do Mensalista", "Nº Cartão NEPOS (6 dígitos)", "Telefone/WhatsApp",
+        "ID Mensalista", "Nome do Mensalista", "Tipo Vínculo", "Loja / Empresa", "Nº Cartão NEPOS (6 dígitos)", "Telefone/WhatsApp",
         "Modelo do Veículo", "Ano", "Cor", "Placa Liberada (LPR)", "Data Recadastro"
     ]
     
@@ -266,12 +292,16 @@ def api_exportar_wps():
     for m in mensalistas:
         veiculos = m.get('veiculos', [])
         cartao = m.get('numero_cartao') or 'Pendente'
+        vinculo = m.get('tipo_vinculo') or 'Lojista / Funcionário'
+        loja = m.get('nome_loja') or '-'
         
         if veiculos:
             for v in veiculos:
                 ws.append([
                     m['id'],
                     m['nome'],
+                    vinculo,
+                    loja,
                     cartao,
                     m['telefone'],
                     v['modelo'],
@@ -280,15 +310,17 @@ def api_exportar_wps():
                     v['placa'],
                     m['data_atualizacao'] or 'Pendente'
                 ])
-                for col_num in range(1, 10):
+                for col_num in range(1, 12):
                     cell = ws.cell(row=row_count, column=col_num)
                     cell.border = thin_border
-                    cell.alignment = align_center if col_num in [1, 3, 4, 6, 8, 9] else align_left
+                    cell.alignment = align_center if col_num in [1, 3, 5, 6, 8, 10, 11] else align_left
                 row_count += 1
         else:
             ws.append([
                 m['id'],
                 m['nome'],
+                vinculo,
+                loja,
                 cartao,
                 m['telefone'],
                 "Pendente de Recadastro",
@@ -297,10 +329,10 @@ def api_exportar_wps():
                 "-",
                 "Pendente"
             ])
-            for col_num in range(1, 10):
+            for col_num in range(1, 12):
                 cell = ws.cell(row=row_count, column=col_num)
                 cell.border = thin_border
-                cell.alignment = align_center if col_num in [1, 3, 4, 6, 8, 9] else align_left
+                cell.alignment = align_center if col_num in [1, 3, 5, 6, 8, 10, 11] else align_left
             row_count += 1
             
     for col in ws.columns:

@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS public.mensalistas (
     telefone TEXT NOT NULL,
     token TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(9), 'hex'),
     numero_cartao TEXT,
+    tipo_vinculo TEXT DEFAULT 'Lojista / Funcionário',
+    nome_loja TEXT,
     status_envio TEXT DEFAULT 'Pendente',
     data_envio TIMESTAMPTZ,
     status_cadastro TEXT DEFAULT 'Pendente',
@@ -18,8 +20,10 @@ CREATE TABLE IF NOT EXISTS public.mensalistas (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Adicionar coluna caso a tabela já tenha sido criada anteriormente
+-- Adicionar colunas caso a tabela já tenha sido criada anteriormente
 ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS numero_cartao TEXT;
+ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS tipo_vinculo TEXT DEFAULT 'Lojista / Funcionário';
+ALTER TABLE public.mensalistas ADD COLUMN IF NOT EXISTS nome_loja TEXT;
 
 -- 2. Tabela Veículos (Liberação LPR / Placas)
 CREATE TABLE IF NOT EXISTS public.veiculos (
@@ -41,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.configuracoes (
 -- Inserir Configurações Padrão
 INSERT INTO public.configuracoes (chave, valor) VALUES
     ('nome_estacionamento', 'Estacionamento Iguatemi Brasília'),
-    ('mensagem_template', 'Olá {nome}, tudo bem? 🚗✨\n\nEstamos migrando nosso sistema de controle para leitura automática de placas (LPR)!\n\nAtualize o número do seu cartão e os veículos da sua mensalidade no link seguro abaixo:\n\n👉 {link}\n\nObrigado!'),
+    ('mensagem_template', 'Olá {nome}, tudo bem? 🚗✨\n\nEstamos migrando nosso sistema de controle para leitura automática de placas (LPR)!\n\nAtualize o número do seu cartão, vínculo (loja ou mensalista externo) e os veículos da sua mensalidade no link seguro abaixo:\n\n👉 {link}\n\nObrigado!'),
     ('intervalo_envio_segundos', '10')
 ON CONFLICT (chave) DO NOTHING;
 
@@ -64,10 +68,10 @@ CREATE POLICY "Permitir leitura publica de configuracoes" ON public.configuracoe
 CREATE POLICY "Permitir atualizacao publica de configuracoes" ON public.configuracoes FOR UPDATE USING (true);
 
 -- Dados Demonstrativos Iniciais
-INSERT INTO public.mensalistas (nome, telefone, token, numero_cartao, status_envio, status_cadastro) VALUES
-    ('Carlos Eduardo Silva', '5511999887766', 'demo_token_carlos', '123456', 'Enviado', 'Atualizado'),
-    ('Mariana Souza Santos', '5511988776655', 'demo_token_mariana', '654321', 'Pendente', 'Pendente'),
-    ('Roberto Almeida Costa', '5511977665544', 'demo_token_roberto', '789012', 'Pendente', 'Pendente')
+INSERT INTO public.mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja, status_envio, status_cadastro) VALUES
+    ('Carlos Eduardo Silva', '5511999887766', 'demo_token_carlos', '123456', 'Lojista / Funcionário', 'Lojas Renner', 'Enviado', 'Atualizado'),
+    ('Mariana Souza Santos', '5511988776655', 'demo_token_mariana', '654321', 'Lojista / Funcionário', 'Zara', 'Pendente', 'Pendente'),
+    ('Roberto Almeida Costa', '5511977665544', 'demo_token_roberto', '789012', 'Mensalista Externo', 'Mensalista Externo', 'Pendente', 'Pendente')
 ON CONFLICT (token) DO NOTHING;
 
 INSERT INTO public.veiculos (mensalista_id, modelo, ano, cor, placa) 
