@@ -87,28 +87,41 @@ def api_import_csv():
     file = request.files['file']
     filename = file.filename.lower()
     
-    importados = 0
-    erros = 0
+    records = []
     
     try:
         if filename.endswith('.csv'):
-            stream = io.StringIO(file.stream.read().decode("utf-8", errors="ignore"), newline=None)
-            csv_input = csv.reader(stream, delimiter=';' if ';' in stream.getvalue() else ',')
+            raw_bytes = file.stream.read()
+            text = ""
+            for encoding in ['utf-8-sig', 'utf-8', 'latin1', 'cp1252']:
+                try:
+                    text = raw_bytes.decode(encoding)
+                    break
+                except Exception:
+                    pass
+                    
+            delimiter = ';' if ';' in text else (',' if ',' in text else '\t')
+            stream = io.StringIO(text, newline=None)
+            csv_input = csv.reader(stream, delimiter=delimiter)
             
-            stream.seek(0)
             headers = next(csv_input, None)
             
             for row in csv_input:
-                if len(row) >= 2:
+                if row and len(row) >= 2:
                     nome = row[0].strip()
                     telefone = row[1].strip()
-                    numero_cartao = row[2].strip() if len(row) >= 3 else None
-                    nome_loja = row[3].strip() if len(row) >= 4 else None
+                    numero_cartao = row[2].strip() if len(row) >= 3 and row[2] else None
+                    nome_loja = row[3].strip() if len(row) >= 4 and row[3] else None
                     tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
                     
-                    if nome and telefone and not nome.lower().startswith('nome'):
-                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao, tipo_vinculo=tipo_vinculo, nome_loja=nome_loja)
-                        importados += 1
+                    if nome and telefone and not nome.lower().startswith('nome') and not nome.lower().startswith('mensalista'):
+                        records.append({
+                            'nome': nome,
+                            'telefone': telefone,
+                            'numero_cartao': numero_cartao,
+                            'tipo_vinculo': tipo_vinculo,
+                            'nome_loja': nome_loja
+                        })
         elif filename.endswith('.xlsx') or filename.endswith('.xls'):
             wb = openpyxl.load_workbook(file)
             sheet = wb.active
@@ -120,13 +133,19 @@ def api_import_csv():
                     nome_loja = str(row[3]).strip() if len(row) >= 4 and row[3] else None
                     tipo_vinculo = "Mensalista Externo" if (nome_loja and "externo" in nome_loja.lower()) else "Lojista / Funcionário"
                     
-                    if nome and telefone and not nome.lower().startswith('nome'):
-                        database.add_mensalista(nome, telefone, numero_cartao=numero_cartao, tipo_vinculo=tipo_vinculo, nome_loja=nome_loja)
-                        importados += 1
+                    if nome and telefone and not nome.lower().startswith('nome') and not nome.lower().startswith('mensalista'):
+                        records.append({
+                            'nome': nome,
+                            'telefone': telefone,
+                            'numero_cartao': numero_cartao,
+                            'tipo_vinculo': tipo_vinculo,
+                            'nome_loja': nome_loja
+                        })
         else:
             return jsonify({'error': 'Formato não suportado. Envie CSV ou Excel (.xlsx).'}), 400
             
-        return jsonify({'success': True, 'importados': importados, 'erros': erros})
+        importados = database.add_mensalistas_bulk(records)
+        return jsonify({'success': True, 'importados': importados, 'total_encontrados': len(records)})
     except Exception as e:
         return jsonify({'error': f"Erro ao processar arquivo: {str(e)}"}), 500
 

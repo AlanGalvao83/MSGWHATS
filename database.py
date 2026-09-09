@@ -40,6 +40,10 @@ def supabase_request(endpoint, method="GET", data=None, params=None):
         with urllib.request.urlopen(req) as resp:
             content = resp.read().decode("utf-8")
             return json.loads(content) if content else True
+    except urllib.error.HTTPError as e:
+        err_content = e.read().decode("utf-8", errors="ignore")
+        print(f"Erro HTTP Supabase ({endpoint}): Status {e.code} - {err_content}")
+        return None
     except Exception as e:
         print(f"Erro na requisição Supabase ({endpoint}):", e)
         return None
@@ -74,7 +78,6 @@ def init_db():
         )
     ''')
     
-    # Adicionar colunas se tabela já existir
     for col, col_type in [("numero_cartao", "TEXT"), ("tipo_vinculo", "TEXT DEFAULT 'Lojista / Funcionário'"), ("nome_loja", "TEXT")]:
         try:
             cursor.execute(f"ALTER TABLE mensalistas ADD COLUMN {col} {col_type}")
@@ -206,7 +209,7 @@ def get_mensalista_by_token(token):
 
 def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / Funcionário", nome_loja=None):
     token = generate_token()
-    telefone_clean = ''.join(c for c in telefone if c.isdigit())
+    telefone_clean = ''.join(c for c in str(telefone) if c.isdigit())
     if not telefone_clean.startswith('55') and len(telefone_clean) in [10, 11]:
         telefone_clean = '55' + telefone_clean
 
@@ -219,7 +222,7 @@ def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / F
             "tipo_vinculo": tipo_vinculo,
             "nome_loja": nome_loja
         })
-        return res[0]['id'] if res else None
+        return res[0]['id'] if (res and isinstance(res, list) and len(res) > 0) else True
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -231,6 +234,61 @@ def add_mensalista(nome, telefone, numero_cartao=None, tipo_vinculo="Lojista / F
     m_id = cursor.lastrowid
     conn.close()
     return m_id
+
+def add_mensalistas_bulk(list_records):
+    """Insere lista de mensalistas em lote (bulk insert ultrarrápido)."""
+    if not list_records:
+        return 0
+        
+    records_to_insert = []
+    for item in list_records:
+        nome = item.get('nome', '').strip()
+        telefone = str(item.get('telefone', '')).strip()
+        telefone_clean = ''.join(c for c in telefone if c.isdigit())
+        if not telefone_clean.startswith('55') and len(telefone_clean) in [10, 11]:
+            telefone_clean = '55' + telefone_clean
+            
+        if nome and telefone_clean:
+            records_to_insert.append({
+                "nome": nome,
+                "telefone": telefone_clean,
+                "token": generate_token(),
+                "numero_cartao": item.get('numero_cartao'),
+                "tipo_vinculo": item.get('tipo_vinculo', 'Lojista / Funcionário'),
+                "nome_loja": item.get('nome_loja')
+            })
+            
+    if not records_to_insert:
+        return 0
+        
+    if is_supabase_enabled():
+        res = supabase_request("mensalistas", method="POST", data=records_to_insert)
+        if res is not None:
+            return len(records_to_insert)
+        else:
+            # Se falhar a inserção em lote (ex: coluna ausente), tentar campo a campo sem campos novos
+            fallback_records = []
+            for r in records_to_insert:
+                fallback_records.append({
+                    "nome": r["nome"],
+                    "telefone": r["telefone"],
+                    "token": r["token"]
+                })
+            res_fb = supabase_request("mensalistas", method="POST", data=fallback_records)
+            return len(fallback_records) if res_fb is not None else 0
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    count = 0
+    for r in records_to_insert:
+        cursor.execute(
+            "INSERT INTO mensalistas (nome, telefone, token, numero_cartao, tipo_vinculo, nome_loja) VALUES (?, ?, ?, ?, ?, ?)",
+            (r['nome'], r['telefone'], r['token'], r['numero_cartao'], r['tipo_vinculo'], r['nome_loja'])
+        )
+        count += 1
+    conn.commit()
+    conn.close()
+    return count
 
 def update_mensalista_veiculos(token, list_veiculos, numero_cartao=None, tipo_vinculo=None, nome_loja=None):
     m = get_mensalista_by_token(token)
