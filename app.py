@@ -157,6 +157,78 @@ def api_marcar_enviado(m_id):
     database.update_status_envio(m_id, 'Enviado')
     return jsonify({'success': True})
 
+@app.route('/api/exportar-mensalistas', methods=['GET'])
+def api_exportar_mensalistas():
+    """Exporta a lista de mensalistas completa em Excel (.xlsx)."""
+    mensalistas = database.get_all_mensalistas()
+    host_url = request.host_url.rstrip('/')
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Lista de Mensalistas"
+    
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+    align_center = Alignment(horizontal="center", vertical="center")
+    align_left = Alignment(horizontal="left", vertical="center")
+    
+    thin_border = Border(
+        left=Side(style='thin', color='CBD5E1'),
+        right=Side(style='thin', color='CBD5E1'),
+        top=Side(style='thin', color='CBD5E1'),
+        bottom=Side(style='thin', color='CBD5E1')
+    )
+    
+    headers = [
+        "ID", "Nome do Mensalista", "Nº Cartão NEPOS", "Telefone",
+        "Status Envio", "Status Recadastro", "Qtd Veículos", "Data Atualização", "Link Recadastro"
+    ]
+    
+    ws.append(headers)
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = align_center
+        
+    row_count = 2
+    for m in mensalistas:
+        link = f"{host_url}/atualizar/{m['token']}"
+        qtd_veiculos = len(m.get('veiculos', []))
+        ws.append([
+            m['id'],
+            m['nome'],
+            m.get('numero_cartao') or 'Pendente',
+            m['telefone'],
+            m['status_envio'],
+            m['status_cadastro'],
+            qtd_veiculos,
+            m['data_atualizacao'] or '-',
+            link
+        ])
+        for col_num in range(1, 10):
+            cell = ws.cell(row=row_count, column=col_num)
+            cell.border = thin_border
+            cell.alignment = align_center if col_num in [1, 3, 4, 5, 6, 7, 8] else align_left
+        row_count += 1
+        
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+        
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return send_file(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"Mensalistas_Iguatemi_{timestamp}.xlsx"
+    )
+
 @app.route('/api/exportar-wps', methods=['GET'])
 def api_exportar_wps():
     mensalistas = database.get_all_mensalistas()
