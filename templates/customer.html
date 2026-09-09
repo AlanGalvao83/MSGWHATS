@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atualização Cadastral de Veículos | Estacionamento WPS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <div class="card portal-card">
+      <div class="brand-logo" style="margin-bottom: 1.5rem; justify-content: center; text-align: center;">
+        <div class="brand-icon">
+          <i class="fa-solid fa-car-side"></i>
+        </div>
+        <div class="brand-text" style="text-align: left;">
+          <h1>Estacionamento WPS</h1>
+          <p>Atualização de Veículos para Leitura de Placa</p>
+        </div>
+      </div>
+
+      <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); padding: 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.75rem;">
+        <h3 style="color: #818cf8; margin-bottom: 0.5rem; font-size: 1.1rem;">
+          <i class="fa-solid fa-circle-info"></i> Olá, {{ mensalista.nome }}!
+        </h3>
+        <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+          Estamos migrando para o novo sistema **WPS**. A partir de agora, seu acesso ao estacionamento será <strong>automático por leitura de placa (LPR)</strong>! Não será mais necessário aproximar o cartão na catraca.
+          <br><br>
+          Por favor, confira ou cadastre abaixo os veículos autorizados para o seu acesso:
+        </p>
+      </div>
+
+      <form id="customer-form" onsubmit="handleCustomerSubmit(event)">
+        <div id="vehicles-container">
+          <!-- Veículos adicionados via JS -->
+        </div>
+
+        <div style="margin-bottom: 1.75rem;">
+          <button type="button" class="btn btn-secondary" style="width: 100%; border-style: dashed;" onclick="addVehicleForm()">
+            <i class="fa-solid fa-plus-circle"></i> Adicionar Mais um Veículo
+          </button>
+        </div>
+
+        <button type="submit" class="btn btn-success" style="width: 100%; padding: 1rem; font-size: 1.05rem;" id="btn-submit-customer">
+          <i class="fa-solid fa-check-circle"></i> Confirmar e Salvar Cadastro
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footer">
+    Estacionamento WPS © 2026 • Sistema de Liberação por Placas
+  </footer>
+
+  <script>
+    const TOKEN = "{{ mensalista.token }}";
+    const INITIAL_VEHICLES = {{ mensalista.veiculos | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/customer.js') }}"></script>
+</body>
+</html>

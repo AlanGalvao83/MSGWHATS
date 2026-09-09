@@ -1,0 +1,28 @@
+# Ignorar Banco de Dados Local
+*.db
+*.sqlite
+*.sqlite3
+msgwhats.db
+
+# Ignorar Variáveis de Ambiente e Segredos
+.env
+.env.local
+.env.*.local
+
+# Python / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# Node / Vercel
+node_modules/
+.vercel
+dist/
+build/
+.next/
+
+# Logs
+*.log

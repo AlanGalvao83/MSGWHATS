@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel do Administrador | MSGWHATS NEPOS -> WPS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <a href="/admin" class="brand-logo">
+        <div class="brand-icon">
+          <i class="fa-brands fa-whatsapp"></i>
+        </div>
+        <div class="brand-text">
+          <h1>MSGWHATS • Migração WPS</h1>
+          <p>Sistema de Notificação & Cadastro de Placas (LPR)</p>
+        </div>
+      </a>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <span class="badge badge-indigo">
+          <i class="fa-solid fa-circle-dot"></i> Sistema NEPOS ➔ WPS
+        </span>
+        <button class="btn btn-secondary btn-sm" onclick="location.reload()">
+          <i class="fa-solid fa-rotate"></i> Atualizar
+        </button>
+      </div>
+    </header>
+
+    <!-- Stat Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>Total Mensalistas</span>
+          <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">
+            <i class="fa-solid fa-users"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-desc">Mensalistas cadastrados</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>Mensagens Enviadas</span>
+          <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+            <i class="fa-solid fa-paper-plane"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-enviados">0</div>
+        <div class="stat-desc">Notificações disparadas</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>Cadastros Atualizados</span>
+          <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+            <i class="fa-solid fa-id-card-clip"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-atualizados">0</div>
+        <div class="stat-desc">Recadastros concluídos</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>Veículos Registrados</span>
+          <div class="stat-icon" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">
+            <i class="fa-solid fa-car"></i>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-veiculos">0</div>
+        <div class="stat-desc">Placas prontas para WPS</div>
+      </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('tab-mensalistas', this)">
+        <i class="fa-solid fa-list-check"></i> Mensalistas & WhatsApp
+      </button>
+      <button class="tab-btn" onclick="switchTab('tab-lote', this)">
+        <i class="fa-solid fa-rocket"></i> Disparo em Lote
+      </button>
+      <button class="tab-btn" onclick="switchTab('tab-veiculos', this)">
+        <i class="fa-solid fa-car"></i> Veículos & Exportação WPS
+      </button>
+      <button class="tab-btn" onclick="switchTab('tab-config', this)">
+        <i class="fa-solid fa-gear"></i> Modelo de Mensagem
+      </button>
+    </div>
+
+    <!-- TAB 1: Mensalistas -->
+    <div id="tab-mensalistas" class="tab-content active">
+      <div class="card">
+        <div class="card-title">
+          <span>Lista de Mensalistas</span>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-secondary btn-sm" onclick="openImportModal()">
+              <i class="fa-solid fa-file-csv"></i> Importar CSV / Excel
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+              <i class="fa-solid fa-plus"></i> Novo Mensalista
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+          <input type="text" id="search-input" class="form-control" placeholder="🔍 Buscar por nome, telefone ou status..." onkeyup="renderMensalistasTable()">
+        </div>
+
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Mensalista</th>
+                <th>Telefone</th>
+                <th>Status Envio</th>
+                <th>Status Recadastro</th>
+                <th>Veículos</th>
+                <th>Ações WhatsApp</th>
+              </tr>
+            </thead>
+            <tbody id="table-mensalistas-body">
+              <!-- Renderizado via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Disparo em Lote -->
+    <div id="tab-lote" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <span>🚀 Central de Disparo em Lote Inteligente</span>
+          <span class="badge badge-amber">Proteção Anti-Bloqueio Ativa</span>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+          Envie a mensagem de atualização do cadastro para múltiplos mensalistas com 1-clique ou de forma automática.
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label">Intervalo de Envio entre Mensagens (segundos)</label>
+            <input type="number" id="lote-delay" class="form-control" value="8" min="3" max="60">
+            <small style="color: var(--text-muted); margin-top: 4px; display: block;">
+              Recomendado de 5 a 15 segundos para segurança da sua conta WhatsApp.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Filtrar Destinatários</label>
+            <select id="lote-filtro" class="form-control" onchange="updateLotePreview()">
+              <option value="pendentes">Apenas Mensalistas Não Enviados (Pendentes)</option>
+              <option value="todos">Todos os Mensalistas</option>
+              <option value="nao_recadastrados">Apenas Quem Ainda Não Atualizou os Veículos</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-card); margin-bottom: 1.5rem;">
+          <h4 style="margin-bottom: 0.5rem; font-weight: 600;">Resumo da Operação:</h4>
+          <p id="lote-resumo-texto">Carregando contatos para envio...</p>
+        </div>
+
+        <button class="btn btn-success" onclick="iniciarDisparoLote()" id="btn-iniciar-lote">
+          <i class="fa-brands fa-whatsapp"></i> Iniciar Sequência de Disparo
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 3: Veículos & Exportação WPS -->
+    <div id="tab-veiculos" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <span>Relatório de Veículos & Liberação de Placas (LPR)</span>
+          <a href="/api/exportar-wps" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> Exportar Planilha WPS (.xlsx)
+          </a>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+          Estes são os veículos cadastrados pelos mensalistas no novo formato para o sistema WPS.
+        </p>
+
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Mensalista</th>
+                <th>Telefone</th>
+                <th>Modelo</th>
+                <th>Ano</th>
+                <th>Cor</th>
+                <th>Placa (LPR)</th>
+                <th>Data Atualização</th>
+              </tr>
+            </thead>
+            <tbody id="table-veiculos-body">
+              <!-- Renderizado via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: Modelo de Mensagem -->
+    <div id="tab-config" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <span>Configuração do Modelo de Mensagem</span>
+          <button class="btn btn-primary btn-sm" onclick="salvarConfiguracoes()">
+            <i class="fa-solid fa-floppy-disk"></i> Salvar Alterações
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nome do Estacionamento</label>
+          <input type="text" id="config-nome-estacionamento" class="form-control" placeholder="Ex: Estacionamento Central">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Texto da Mensagem no WhatsApp</label>
+          <textarea id="config-mensagem-template" class="form-control" style="height: 160px;" oninput="atualizarPréviaMensagem()"></textarea>
+          <small style="color: var(--text-muted); margin-top: 6px; display: block;">
+            <strong>Tags dinâmicas disponíveis:</strong> <code>{nome}</code> (Nome do mensalista), <code>{link}</code> (Link individual de recadastro), <code>{nome_estacionamento}</code>.
+          </small>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <label class="form-label">Prévia em Tempo Real (como o cliente receberá):</label>
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 1.25rem; border-radius: var(--radius-md); white-space: pre-wrap; font-family: sans-serif; color: #e2e8f0;" id="previa-mensagem-texto"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL: Importar CSV -->
+  <div class="modal-overlay" id="modal-import">
+    <div class="modal-box">
+      <div class="card-title">
+        <span>Importar Mensalistas via CSV / Excel</span>
+        <button class="btn btn-secondary btn-sm" onclick="closeImportModal()">&times;</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+        Envie um arquivo CSV ou Excel contendo as colunas: <strong>Nome</strong> na primeira coluna e <strong>Telefone</strong> na segunda coluna.
+      </p>
+      <form id="form-import" onsubmit="handleImportSubmit(event)">
+        <div class="form-group">
+          <input type="file" id="file-import" class="form-control" accept=".csv, .xlsx, .xls" required>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Fazer Importação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Adicionar Mensalista -->
+  <div class="modal-overlay" id="modal-add">
+    <div class="modal-box">
+      <div class="card-title">
+        <span>Novo Mensalista</span>
+        <button class="btn btn-secondary btn-sm" onclick="closeAddModal()">&times;</button>
+      </div>
+      <form onsubmit="handleAddSubmit(event)">
+        <div class="form-group">
+          <label class="form-label">Nome Completo</label>
+          <input type="text" id="add-nome" class="form-control" placeholder="Ex: João da Silva" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefone / WhatsApp (com DDD)</label>
+          <input type="text" id="add-telefone" class="form-control" placeholder="Ex: 11999998888" required>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    MSGWHATS © 2026 • Automação de Migração NEPOS para WPS • Todos os direitos reservados.
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>
