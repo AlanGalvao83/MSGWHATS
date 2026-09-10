@@ -96,8 +96,8 @@ function renderMensalistasTable() {
   tbody.innerHTML = filtered.map(m => {
     const nomeLimpo = m.nome ? m.nome.split(';')[0].trim() : '';
     const envioBadge = m.status_envio === 'Enviado' 
-      ? `<span class="badge badge-green"><i class="fa-solid fa-check"></i> Enviado</span>`
-      : `<span class="badge badge-amber"><i class="fa-solid fa-clock"></i> Pendente</span>`;
+      ? `<span class="badge badge-green" style="cursor: pointer;" onclick="toggleStatusEnvio(${m.id}, 'Pendente')" title="Clique para alterar para Pendente"><i class="fa-solid fa-check"></i> Enviado</span>`
+      : `<span class="badge badge-amber" style="cursor: pointer;" onclick="toggleStatusEnvio(${m.id}, 'Enviado')" title="Clique para alterar para Enviado"><i class="fa-solid fa-clock"></i> Pendente</span>`;
       
     const cadastroBadge = m.status_cadastro === 'Atualizado'
       ? `<span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Atualizado</span>`
@@ -137,7 +137,7 @@ function renderMensalistasTable() {
         <td style="text-align: center;">${veiculosTexto}</td>
         <td>
           <div class="table-actions">
-            <a href="${m.whatsapp_url}" target="_blank" onclick="marcarComoEnviado(${m.id})" class="btn btn-success btn-sm" title="Enviar WhatsApp Web">
+            <a href="${m.whatsapp_url}" target="whatsapp_dispatch_window" onclick="marcarComoEnviado(${m.id})" class="btn btn-success btn-sm" title="Enviar WhatsApp Web">
               <i class="fa-brands fa-whatsapp"></i> WhatsApp
             </a>
             <button onclick="copiarLink('${m.link_atualizacao}')" class="btn btn-secondary btn-sm" title="Copiar Link Individual">
@@ -222,12 +222,32 @@ function formatPlaca(placa) {
   return clean;
 }
 
-async function marcarComoEnviado(mId) {
+async function marcarComoEnviado(mId, status = 'Enviado') {
   try {
-    await fetch(`/api/marcar-enviado/${mId}`, { method: 'POST' });
-    loadData();
+    await fetch(`/api/marcar-enviado/${mId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
   } catch (err) {
     console.error("Erro ao marcar envio:", err);
+  }
+}
+
+async function toggleStatusEnvio(mId, novoStatus) {
+  await marcarComoEnviado(mId, novoStatus);
+  loadData();
+}
+
+async function resetarStatusLote() {
+  if (confirm("Tem certeza que deseja redefinir o status de envio de TODOS os mensalistas para 'Pendente'?")) {
+    try {
+      await fetch('/api/resetar-status-lote', { method: 'POST' });
+      alert("Status de todos os mensalistas redefinido para Pendente!");
+      loadData();
+    } catch (err) {
+      alert("Erro ao redefinir status.");
+    }
   }
 }
 
@@ -366,9 +386,13 @@ function updateLotePreview() {
   `;
 }
 
+let isDisparoRodando = false;
+
 async function iniciarDisparoLote() {
   const filtro = document.getElementById('lote-filtro').value;
   const delaySec = parseInt(document.getElementById('lote-delay').value) || 8;
+  const chkReutilizar = document.getElementById('lote-reutilizar-aba');
+  const reutilizarAba = chkReutilizar ? chkReutilizar.checked : true;
   
   let lista = [];
   if (filtro === 'pendentes') {
@@ -384,25 +408,60 @@ async function iniciarDisparoLote() {
     return;
   }
 
-  if (!confirm(`Iniciar envio sequencial para ${lista.length} pessoas com intervalo de ${delaySec} segundos?`)) {
+  const targetTab = reutilizarAba ? 'whatsapp_dispatch_window' : '_blank';
+
+  if (!confirm(`Iniciar envio para ${lista.length} contatos?\n\n• Intervalo: ${delaySec} segundos\n• Reutilizar aba: ${reutilizarAba ? 'Sim (Apenas 1 aba)' : 'Não (Múltiplas abas)'}`)) {
     return;
   }
 
-  const btn = document.getElementById('btn-iniciar-lote');
-  btn.disabled = true;
+  isDisparoRodando = true;
+  const btnIniciar = document.getElementById('btn-iniciar-lote');
+  const btnParar = document.getElementById('btn-parar-lote');
+  btnIniciar.disabled = true;
+  btnParar.style.display = 'inline-flex';
 
   for (let i = 0; i < lista.length; i++) {
+    if (!isDisparoRodando) break;
+
     const item = lista[i];
-    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Enviando ${i + 1}/${lista.length}: ${item.nome}...`;
-    
-    window.open(item.whatsapp_url, '_blank');
-    await marcarComoEnviado(item.id);
-    
-    await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
+    const nomeVisual = item.nome ? item.nome.split(';')[0] : 'Mensalista';
+    btnIniciar.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> (${i + 1}/${lista.length}) Enviando: ${nomeVisual}...`;
+
+    window.open(item.whatsapp_url, targetTab);
+    await marcarComoEnviado(item.id, 'Enviado');
+
+    for (let s = 0; s < delaySec; s++) {
+      if (!isDisparoRodando) break;
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
 
-  btn.disabled = false;
-  btn.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Iniciar Sequência de Disparo`;
-  alert("Sequência de disparos em lote finalizada!");
+  isDisparoRodando = false;
+  btnIniciar.disabled = false;
+  btnIniciar.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Iniciar Disparo em Lote`;
+  btnParar.style.display = 'none';
+  alert("Sequência de disparos finalizada!");
   loadData();
+}
+
+function pararDisparoLote() {
+  isDisparoRodando = false;
+  const btnIniciar = document.getElementById('btn-iniciar-lote');
+  const btnParar = document.getElementById('btn-parar-lote');
+  btnIniciar.disabled = false;
+  btnIniciar.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Iniciar Disparo em Lote`;
+  btnParar.style.display = 'none';
+  alert("Disparo interrompido pelo usuário.");
+}
+
+function openAutoSendModal() {
+  document.getElementById('modal-autosend').classList.add('active');
+}
+function closeAutoSendModal() {
+  document.getElementById('modal-autosend').classList.remove('active');
+}
+function copiarScriptAutosend() {
+  const code = document.getElementById('autosend-code').value;
+  navigator.clipboard.writeText(code);
+  alert("Código de automação copiado! Cole no Console (F12) do WhatsApp Web para enviar sem precisar clicar.");
 }

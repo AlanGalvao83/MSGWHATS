@@ -397,6 +397,20 @@ def update_status_envio(m_id, status):
     conn.commit()
     conn.close()
 
+def reset_all_status_envio():
+    if is_supabase_enabled():
+        supabase_request("mensalistas?status_envio=neq.Pendente", method="PATCH", data={
+            "status_envio": "Pendente",
+            "data_envio": None
+        })
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE mensalistas SET status_envio = 'Pendente', data_envio = NULL")
+    conn.commit()
+    conn.close()
+
 def delete_mensalista(m_id):
     if is_supabase_enabled():
         supabase_request(f"mensalistas?id=eq.{m_id}", method="DELETE")

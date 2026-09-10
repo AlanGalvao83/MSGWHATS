@@ -99,12 +99,15 @@
       <div class="card">
         <div class="card-title">
           <span>Lista de Mensalistas</span>
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <a href="/api/exportar-mensalistas" class="btn btn-success btn-sm">
               <i class="fa-solid fa-file-excel"></i> Exportar Lista (Excel)
             </a>
             <button class="btn btn-secondary btn-sm" onclick="openImportModal()">
               <i class="fa-solid fa-file-csv"></i> Importar CSV / Excel
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="resetarStatusLote()" title="Redefinir status de envio de todos para Pendente">
+              <i class="fa-solid fa-arrow-rotate-left"></i> Redefinir Status (Pendentes)
             </button>
             <button class="btn btn-primary btn-sm" onclick="openAddModal()">
               <i class="fa-solid fa-plus"></i> Novo Mensalista
@@ -147,15 +150,15 @@
           <span class="badge badge-amber">Proteção Anti-Bloqueio Ativa</span>
         </div>
         <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-          Envie a mensagem de atualização do cadastro para múltiplos mensalistas com 1-clique ou de forma automática.
+          Envie as notificações do recadastro automaticamente reutilizando a mesma aba do WhatsApp Web.
         </p>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.25rem;">
           <div class="form-group">
             <label class="form-label">Intervalo de Envio entre Mensagens (segundos)</label>
             <input type="number" id="lote-delay" class="form-control" value="8" min="3" max="60">
             <small style="color: var(--text-muted); margin-top: 4px; display: block;">
-              Recomendado de 5 a 15 segundos para segurança da sua conta WhatsApp.
+              Recomendado de 6 a 15 segundos para dar tempo do WhatsApp Web carregar.
             </small>
           </div>
 
@@ -169,14 +172,32 @@
           </div>
         </div>
 
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-card); margin-bottom: 1.25rem;">
+          <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; color: #34d399;">
+            <input type="checkbox" id="lote-reutilizar-aba" checked style="width: 18px; height: 18px; accent-color: #10b981;">
+            Reutilizar a mesma guia do WhatsApp Web (Evita abrir 1000 abas)
+          </label>
+          <small style="color: var(--text-muted); display: block; margin-top: 0.35rem; margin-left: 1.8rem;">
+            O sistema manterá apenas 1 aba de envio aberta no navegador, redirecionando de contato em contato.
+          </small>
+        </div>
+
         <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-card); margin-bottom: 1.5rem;">
           <h4 style="margin-bottom: 0.5rem; font-weight: 600;">Resumo da Operação:</h4>
           <p id="lote-resumo-texto">Carregando contatos para envio...</p>
         </div>
 
-        <button class="btn btn-success" onclick="iniciarDisparoLote()" id="btn-iniciar-lote">
-          <i class="fa-brands fa-whatsapp"></i> Iniciar Sequência de Disparo
-        </button>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-success" onclick="iniciarDisparoLote()" id="btn-iniciar-lote">
+            <i class="fa-brands fa-whatsapp"></i> Iniciar Disparo em Lote
+          </button>
+          <button class="btn btn-danger" onclick="pararDisparoLote()" id="btn-parar-lote" style="display: none;">
+            <i class="fa-solid fa-circle-stop"></i> Parar Disparo
+          </button>
+          <button class="btn btn-secondary" onclick="openAutoSendModal()">
+            <i class="fa-solid fa-robot"></i> ⚡ Como Ativar o Envio Automático (Sem Clicar)
+          </button>
+        </div>
       </div>
     </div>
 
@@ -325,6 +346,41 @@
           <button type="submit" class="btn btn-primary">Cadastrar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Auto-Send Helper -->
+  <div class="modal-overlay" id="modal-autosend">
+    <div class="modal-box" style="max-width: 650px;">
+      <div class="card-title">
+        <span>⚡ Automação de Disparo (Auto-Send sem Cliques)</span>
+        <button class="btn btn-secondary btn-sm" onclick="closeAutoSendModal()">&times;</button>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+        Por segurança dos navegadores, sites externos não têm permissão para simular o clique do mouse dentro do WhatsApp Web. No entanto, você pode ativar a automação mãos-livres com <strong>1-clique</strong> usando o script abaixo:
+      </p>
+
+      <div style="background: rgba(15, 23, 42, 0.8); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-glow); margin-bottom: 1rem;">
+        <h5 style="color: #34d399; margin-bottom: 0.5rem;"><i class="fa-solid fa-code"></i> Script de Clique Automático (Console / Bookmarklet):</h5>
+        <textarea readonly id="autosend-code" class="form-control" style="font-family: monospace; font-size: 0.8rem; height: 100px; color: #818cf8; background: #0f172a;">javascript:(function(){setInterval(function(){var btn=document.querySelector('button[aria-label="Enviar"]')||document.querySelector('button[aria-label="Send"]')||document.querySelector('button span[data-icon="send"]');if(btn){var b=btn.closest('button')||btn;if(b&&!b.disabled){b.click();}}},1200);})();</textarea>
+        <div style="margin-top: 0.75rem; display: flex; justify-content: flex-end;">
+          <button class="btn btn-primary btn-sm" onclick="copiarScriptAutosend()">
+            <i class="fa-solid fa-copy"></i> Copiar Código de Automação
+          </button>
+        </div>
+      </div>
+
+      <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+        <strong>Como ativar no navegador em 10 segundos:</strong><br>
+        1. Abra o WhatsApp Web (<code>web.whatsapp.com</code>).<br>
+        2. Pressione <code>F12</code> no teclado (ou clique com botão direito ➔ Inspecionar ➔ <strong>Console</strong>).<br>
+        3. Cole o código acima e aperte <code>Enter</code>.<br>
+        4. Pronto! O WhatsApp Web clicará em <strong>Enviar</strong> automaticamente assim que a aba de cada mensalista abrir!
+      </div>
+
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeAutoSendModal()">Entendi</button>
+      </div>
     </div>
   </div>
 

@@ -53,13 +53,12 @@ def success_page():
 def api_get_mensalistas():
     mensalistas = database.get_all_mensalistas()
     host_url = get_public_host()
+    configs = database.get_configuracoes()
+    msg_template = configs.get('mensagem_template', 'Olá {nome}, atualize seu cadastro: {link}')
+    nome_estacionamento = configs.get('nome_estacionamento', 'Estacionamento WPS')
     
     for m in mensalistas:
         m['link_atualizacao'] = f"{host_url}/atualizar/{m['token']}"
-        configs = database.get_configuracoes()
-        msg_template = configs.get('mensagem_template', 'Olá {nome}, atualize seu cadastro: {link}')
-        nome_estacionamento = configs.get('nome_estacionamento', 'Estacionamento WPS')
-        
         msg_personalizada = msg_template.replace('{nome}', m['nome'])\
                                         .replace('{link}', m['link_atualizacao'])\
                                         .replace('{nome_estacionamento}', nome_estacionamento)
