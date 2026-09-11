@@ -399,7 +399,7 @@ def update_status_envio(m_id, status):
 
 def reset_all_status_envio():
     if is_supabase_enabled():
-        supabase_request("mensalistas?status_envio=neq.Pendente", method="PATCH", data={
+        supabase_request("mensalistas?status_cadastro=neq.Atualizado", method="PATCH", data={
             "status_envio": "Pendente",
             "data_envio": None
         })
@@ -407,7 +407,7 @@ def reset_all_status_envio():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE mensalistas SET status_envio = 'Pendente', data_envio = NULL")
+    cursor.execute("UPDATE mensalistas SET status_envio = 'Pendente', data_envio = NULL WHERE status_cadastro != 'Atualizado'")
     conn.commit()
     conn.close()
 

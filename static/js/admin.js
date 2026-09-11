@@ -240,10 +240,10 @@ async function toggleStatusEnvio(mId, novoStatus) {
 }
 
 async function resetarStatusLote() {
-  if (confirm("Tem certeza que deseja redefinir o status de envio de TODOS os mensalistas para 'Pendente'?")) {
+  if (confirm("Redefinir o status de envio para 'Pendente' apenas de quem AINDA NÃO atualizou os veículos?\n\n• Quem já atualizou os veículos continuará intocado e protegido.\n• Apenas os não-atualizados voltarão para Pendente.")) {
     try {
       await fetch('/api/resetar-status-lote', { method: 'POST' });
-      alert("Status de todos os mensalistas redefinido para Pendente!");
+      alert("Status de envio redefinido para Pendente (apenas para quem ainda não atualizou)!");
       loadData();
     } catch (err) {
       alert("Erro ao redefinir status.");
